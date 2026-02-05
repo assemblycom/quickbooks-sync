@@ -1,6 +1,7 @@
 import { StatusableError } from '@/type/CopilotApiError'
 import pRetry, { FailedAttemptError } from 'p-retry'
 import * as Sentry from '@sentry/nextjs'
+import { RetryableError } from '@/utils/error'
 
 export const withRetry = async <T>(
   fn: (...args: any[]) => Promise<T>,
@@ -46,6 +47,10 @@ export const withRetry = async <T>(
         )
       },
       shouldRetry: (error: any) => {
+        if (error instanceof RetryableError) {
+          return error.retry
+        }
+
         // Typecasting because Copilot doesn't export an error class
         const err = error as StatusableError
         // Retry only if statusCode === 429

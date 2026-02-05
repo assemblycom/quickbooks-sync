@@ -21,7 +21,10 @@ import {
   QBAccountUpdatePayloadType,
   QBAccountResponseType,
   QBAccountResponseSchema,
+  CompanyInfoType,
+  CompanyInfoSchema,
 } from '@/type/dto/intuitAPI.dto'
+import { RetryableError } from '@/utils/error'
 import CustomLogger from '@/utils/logger'
 import httpStatus from 'http-status'
 
@@ -768,14 +771,12 @@ export default class IntuitAPI {
     return purchase
   }
 
-  async _getCompanyInfo() {
+  async _getCompanyInfo(): Promise<CompanyInfoType['CompanyInfo'][0]> {
     CustomLogger.info({
       message: `IntuitAPI#getCompanyInfo | Company Info query start for realmId: ${this.tokens.intuitRealmId}.`,
     })
     const query = `SELECT * FROM CompanyInfo maxresults 1`
     const companyInfo = await this.customQuery(query)
-
-    if (!companyInfo) return null
 
     if (companyInfo?.Fault) {
       CustomLogger.error({ obj: companyInfo.Fault?.Error, message: 'Error: ' })
@@ -786,7 +787,15 @@ export default class IntuitAPI {
       )
     }
 
-    return companyInfo.CompanyInfo?.[0]
+    if (!companyInfo)
+      throw new RetryableError(
+        httpStatus.BAD_REQUEST,
+        'No company info found',
+        true,
+      )
+
+    const parsedCompanyInfo = CompanyInfoSchema.parse(companyInfo)
+    return parsedCompanyInfo.CompanyInfo?.[0]
   }
 
   private wrapWithRetry<Args extends unknown[], R>(

@@ -45,7 +45,7 @@ export async function checkForNonUsCompany(tokenInfo: IntuitAPITokensType) {
     message: 'checkForNonUsCompany | Company Info',
   })
 
-  return companyInfo?.Country !== 'US'
+  return companyInfo.Country !== 'US'
 }
 
 export async function reconnectIfCta(type?: string) {

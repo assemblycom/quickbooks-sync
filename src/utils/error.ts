@@ -40,3 +40,14 @@ export const getMessageAndCodeFromError = (
   }
   return { message, code }
 }
+
+export class RetryableError extends Error {
+  readonly retry: boolean
+  readonly status: number
+
+  constructor(status: number, message: string, retry: boolean) {
+    super(message)
+    this.retry = retry
+    this.status = status
+  }
+}
