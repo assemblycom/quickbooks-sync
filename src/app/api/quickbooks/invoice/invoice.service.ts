@@ -363,9 +363,9 @@ export class InvoiceService extends BaseService {
           // Doc reference: https://developer.intuit.com/app/developer/qbo/docs/workflows/manage-sales-tax-for-us-locales#specifying-sales-tax
           value: 'TAX',
         },
-        // classrRef is optional. ClassRef to reference the associated class of the QB item.
+        // ClassRef is optional. Only include when we have a value, otherwise QB will use the item's default class.
         // Doc reference: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/class
-        ClassRef: itemRef.classRef,
+        ...(itemRef.classRef && { ClassRef: itemRef.classRef }),
       },
       Description:
         typeof itemRef.productDescription === 'undefined'
