@@ -200,3 +200,12 @@ export const QBDeletePayloadSchema = z.object({
 })
 
 export type QBDeletePayloadType = z.infer<typeof QBDeletePayloadSchema>
+
+export const CompanyInfoSchema = z.object({
+  CompanyInfo: z.array(
+    z.object({
+      Country: z.string(),
+    }),
+  ),
+})
+export type CompanyInfoType = z.infer<typeof CompanyInfoSchema>

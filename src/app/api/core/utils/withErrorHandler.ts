@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ZodError, ZodFormattedError } from 'zod'
 import { isAxiosError } from '@/app/api/core/exceptions/custom'
 import * as Sentry from '@sentry/nextjs'
-import { IntuitAPIErrorMessage } from '@/utils/intuitAPI'
+import { RetryableError } from '@/utils/error'
 
 type RequestHandler = (req: NextRequest, params: any) => Promise<NextResponse>
 
@@ -64,6 +64,9 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
         status = error.status
         message = error.message || message
         errors = error.errors
+      } else if (error instanceof RetryableError) {
+        status = error.status
+        message = error.message || message
       } else if (error instanceof Error && error.message) {
         message = error.message
       } else if (isAxiosError(error)) {
