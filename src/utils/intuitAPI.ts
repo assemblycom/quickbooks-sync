@@ -778,6 +778,13 @@ export default class IntuitAPI {
     const query = `SELECT * FROM CompanyInfo maxresults 1`
     const companyInfo = await this.customQuery(query)
 
+    if (!companyInfo)
+      throw new RetryableError(
+        httpStatus.NOT_FOUND,
+        'No company info found',
+        true,
+      )
+
     if (companyInfo?.Fault) {
       CustomLogger.error({ obj: companyInfo.Fault?.Error, message: 'Error: ' })
       throw new APIError(
@@ -786,13 +793,6 @@ export default class IntuitAPI {
         companyInfo.Fault?.Error,
       )
     }
-
-    if (!companyInfo)
-      throw new RetryableError(
-        httpStatus.NOT_FOUND,
-        'No company info found',
-        true,
-      )
 
     const parsedCompanyInfo = CompanyInfoSchema.parse(companyInfo)
     return parsedCompanyInfo.CompanyInfo?.[0]
