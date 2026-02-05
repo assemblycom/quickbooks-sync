@@ -785,7 +785,7 @@ export default class IntuitAPI {
         true,
       )
 
-    if (companyInfo?.Fault) {
+    if (companyInfo.Fault) {
       CustomLogger.error({ obj: companyInfo.Fault?.Error, message: 'Error: ' })
       throw new APIError(
         companyInfo.Fault?.Error?.code || httpStatus.BAD_REQUEST,
@@ -795,7 +795,7 @@ export default class IntuitAPI {
     }
 
     const parsedCompanyInfo = CompanyInfoSchema.parse(companyInfo)
-    return parsedCompanyInfo.CompanyInfo?.[0]
+    return parsedCompanyInfo.CompanyInfo[0]
   }
 
   private wrapWithRetry<Args extends unknown[], R>(
