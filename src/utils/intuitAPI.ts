@@ -789,7 +789,7 @@ export default class IntuitAPI {
 
     if (!companyInfo)
       throw new RetryableError(
-        httpStatus.BAD_REQUEST,
+        httpStatus.NOT_FOUND,
         'No company info found',
         true,
       )
