@@ -326,7 +326,7 @@ export class InvoiceService extends BaseService {
       syncLogConditions,
     )
 
-    return { ref: { value: qbItem.Id }, productDescription }
+    return { ref: { value: qbItem.Id }, productDescription, classRef: qbItem.ClassRef }
   }
 
   private async prepareLineItemPayload(
