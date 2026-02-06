@@ -3,6 +3,8 @@ import { AuthService } from '@/app/api/quickbooks/auth/auth.service'
 import { WebhookService } from '@/app/api/quickbooks/webhook/webhook.service'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const maxDuration = 300 // 5 minutes
+
 export async function captureWebhookEvent(req: NextRequest) {
   console.info('\n\n####### Webhook triggered #######')
   const user = await authenticate(req)

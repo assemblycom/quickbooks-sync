@@ -25,6 +25,7 @@ import { CopilotAPI } from '@/utils/copilotAPI'
 import { ErrorMessageAndCode, getMessageAndCodeFromError } from '@/utils/error'
 import { IntuitAPITokensType } from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
+import { sleep } from '@/utils/sleep'
 import {
   getDeletedAtForAuthAccountCategoryLog,
   getCategory,
@@ -377,6 +378,8 @@ export class WebhookService extends BaseService {
     payload: unknown,
     qbTokenInfo: IntuitAPITokensType,
   ) {
+    await sleep(1000) // Payment succeed event can sometimes trigger before invoice created.
+
     console.info('###### PAYMENT SUCCEEDED ######')
     const parsedPaymentSucceed =
       PaymentSucceededResponseSchema.safeParse(payload)
