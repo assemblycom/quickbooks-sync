@@ -219,7 +219,7 @@ export class InvoiceService extends BaseService {
           amount: parseFloat(itemAmount) / 100,
           productDescription: mapping.description || '',
           // classRef is optional. A classRef to the mapped QB item is checked every time for each item when creating an invoice.
-          classRef: intuitItem?.ClassRef,
+          classRef: intuitItem.ClassRef,
         }
       }
     }
@@ -326,7 +326,11 @@ export class InvoiceService extends BaseService {
       syncLogConditions,
     )
 
-    return { ref: { value: qbItem.Id }, productDescription, classRef: qbItem.ClassRef }
+    return {
+      ref: { value: qbItem.Id },
+      productDescription,
+      classRef: qbItem.ClassRef,
+    }
   }
 
   private async prepareLineItemPayload(
