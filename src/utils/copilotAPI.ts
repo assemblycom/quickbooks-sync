@@ -44,8 +44,8 @@ import {
   WorkspaceResponseSchema,
 } from '@/type/common'
 import Bottleneck from 'bottleneck'
-import type { CopilotAPI as SDK } from 'copilot-node-sdk'
-import { copilotApi } from 'copilot-node-sdk'
+import type { AssemblyAPI as SDK } from '@assembly-js/node-sdk'
+import { assemblyApi } from '@assembly-js/node-sdk'
 import { z } from 'zod'
 import { API_DOMAIN } from '@/constant/domains'
 import httpStatus from 'http-status'
@@ -55,7 +55,7 @@ export class CopilotAPI {
   copilot: SDK
 
   constructor(private token: string) {
-    this.copilot = copilotApi({ apiKey, token })
+    this.copilot = assemblyApi({ apiKey, token })
   }
 
   private async manualFetch(
@@ -270,7 +270,7 @@ export class CopilotAPI {
   async _getCustomFields(): Promise<CustomFieldResponse> {
     console.info('CopilotAPI#getCustomFields | token =', this.token)
     return CustomFieldResponseSchema.parse(
-      await this.copilot.listCustomFields(),
+      await this.copilot.listCustomFields({}),
     )
   }
 
