@@ -134,26 +134,22 @@ export class InvoiceService extends BaseService {
   }
 
   private async handleItemAmount({
-    unitPrice,
     copilotUnitPrice,
     priceId,
     mappingId,
     productService,
   }: {
-    unitPrice: string | null
     copilotUnitPrice: string | null
     priceId: string
     mappingId: string
     productService: ProductService
   }) {
-    console.log('Checking if QB item unit price is available and not zero.')
-    // if unitPrice (QB unit price) is null, return copilot unit price.
-    let itemAmount =
-      unitPrice && unitPrice !== '0' ? unitPrice : copilotUnitPrice
+    console.log(
+      'Checking if Assembly item unit price is available and not zero.',
+    )
+    if (copilotUnitPrice && copilotUnitPrice !== '0') return copilotUnitPrice
 
     // fetch price amount from copilot if copilotUnitPrice is null
-    if (itemAmount && itemAmount !== '0') return itemAmount
-
     console.info(
       'Copilot product price not found in mapping table. Fetching from copilot SDK',
     )
@@ -163,7 +159,7 @@ export class InvoiceService extends BaseService {
         httpStatus.NOT_FOUND,
         'Price not found. Id: ' + priceId,
       )
-    itemAmount = copilotPriceRes.amount.toFixed()
+    const itemAmount = copilotPriceRes.amount.toFixed()
 
     // update the price amount in our DB
     const priceUpdatePayload = {
@@ -201,7 +197,6 @@ export class InvoiceService extends BaseService {
         console.info('InvoiceService#getInvoiceItemRef | Product map found')
 
         const itemAmount = await this.handleItemAmount({
-          unitPrice: mapping.unitPrice,
           copilotUnitPrice: mapping.copilotUnitPrice,
           priceId,
           mappingId: mapping.id,
