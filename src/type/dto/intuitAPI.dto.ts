@@ -209,3 +209,18 @@ export const CompanyInfoSchema = z.object({
   ),
 })
 export type CompanyInfoType = z.infer<typeof CompanyInfoSchema>
+
+export const CustomerQueryResponseSchema = z.object({
+  Id: z.string(),
+  SyncToken: z.string(),
+  Active: z.boolean(),
+  PrimaryEmailAddr: z
+    .object({
+      Address: z.string(),
+    })
+    .optional(),
+})
+
+export type CustomerQueryResponseType = z.infer<
+  typeof CustomerQueryResponseSchema
+>

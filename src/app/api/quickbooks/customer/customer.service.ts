@@ -11,8 +11,11 @@ import {
   QBCustomerUpdateSchemaType,
 } from '@/db/schema/qbCustomers'
 import { CompanyResponse, WhereClause } from '@/type/common'
+import { QBCustomerCreatePayloadType } from '@/type/dto/intuitAPI.dto'
+import { InvoiceCreatedResponseType } from '@/type/dto/webhook.dto'
 import { CopilotAPI } from '@/utils/copilotAPI'
 import IntuitAPI from '@/utils/intuitAPI'
+import { replaceSpecialCharsForQB } from '@/utils/string'
 import { and, eq, isNull } from 'drizzle-orm'
 import httpStatus from 'http-status'
 
@@ -262,7 +265,7 @@ export class CustomerService extends BaseService {
         Active: true,
         sparse: true,
       })
-      customer = updateRes.Customer
+      customer = updateRes
     }
 
     // 2. update sync token in customer sync table
@@ -318,5 +321,89 @@ export class CustomerService extends BaseService {
       'companyName',
       'displayName',
     ])
+  }
+
+  /**
+   * Assembly supports the client with same name in same company. Since name should be unique in qb, we basically concat email address to the name
+   */
+  private getCustomerDisplayName(recipientInfo: ClientCompanyType) {
+    let toConcat = ''
+
+    if (recipientInfo.email) {
+      toConcat = `(${recipientInfo.email})`
+    } else {
+      toConcat = `(1)`
+    }
+    const finalDisplayName = `${replaceSpecialCharsForQB(recipientInfo.displayName)} ${toConcat}`
+
+    return finalDisplayName.trim()
+  }
+
+  async findOrCreateCustomerByName({
+    intuitApiService,
+    recipientInfo,
+    companyInfo,
+    invoiceResource,
+  }: {
+    intuitApiService: IntuitAPI
+    recipientInfo: ClientCompanyType
+    companyInfo: CompanyResponse | undefined
+    invoiceResource: InvoiceCreatedResponseType['data']
+  }) {
+    const displayName = this.getCustomerDisplayName(recipientInfo)
+    // 2.1. search client in qb using client's given name and family name
+    let customer = await intuitApiService.getACustomer(
+      displayName,
+      undefined,
+      true,
+    )
+
+    // 3. if not found, create a new client in the QB
+    if (!customer) {
+      console.info(
+        `InvoiceService#WebhookInvoiceCreated | Customer named ${recipientInfo.displayName} not found in QB. Creating new customer...`,
+      )
+      // Create a new customer in QB
+      let customerPayload: QBCustomerCreatePayloadType = {
+        DisplayName: displayName,
+        CompanyName: companyInfo && replaceSpecialCharsForQB(companyInfo.name),
+        PrimaryEmailAddr: {
+          Address: recipientInfo?.email || '',
+        },
+      }
+
+      if (recipientInfo.givenName && recipientInfo.familyName) {
+        customerPayload = {
+          ...customerPayload,
+          GivenName: replaceSpecialCharsForQB(recipientInfo.givenName),
+          FamilyName: replaceSpecialCharsForQB(recipientInfo.familyName),
+        }
+      }
+
+      const customerRes = await intuitApiService.createCustomer(customerPayload)
+      customer = customerRes
+
+      console.info(
+        `InvoiceService#WebhookInvoiceCreated | Customer created in QB with ID: ${customer.Id}.`,
+      )
+    }
+
+    // create map for customer into mapping table
+    const customerSync = await this.createQBCustomer({
+      portalId: this.user.workspaceId,
+      customerId: recipientInfo.recipientId, // TODO: remove everything related to this field. in case anything goes off the track
+      clientCompanyId: recipientInfo.clientCompanyId,
+      clientId: invoiceResource.clientId || null,
+      companyId: invoiceResource.companyId || null,
+      givenName: recipientInfo.givenName,
+      familyName: recipientInfo.familyName,
+      displayName: recipientInfo.displayName,
+      email: recipientInfo.email,
+      companyName: companyInfo?.name,
+      qbSyncToken: customer.SyncToken,
+      qbCustomerId: customer.Id,
+    })
+
+    return { customer, customerSyncId: customerSync.id }
   }
 }
