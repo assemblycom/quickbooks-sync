@@ -29,6 +29,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@assembly-js/node-sdk@npm:^3.19.1":
+  version: 3.19.1
+  resolution: "@assembly-js/node-sdk@npm:3.19.1"
+  dependencies:
+    isomorphic-fetch: "npm:^3.0.0"
+    next: "npm:^14.0.2"
+  checksum: 10c0/8385b54c6426f7867db8c308c96f5e535aeab59ff1150fc96809d080a1004792920d0390e8a7d26775e5480a8a10f2b7f7db1d29c1e42267a9a03e12e8418785
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.27.1":
   version: 7.27.1
   resolution: "@babel/code-frame@npm:7.27.1"
@@ -5200,16 +5210,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"copilot-node-sdk@npm:^3.11.1":
-  version: 3.11.1
-  resolution: "copilot-node-sdk@npm:3.11.1"
-  dependencies:
-    isomorphic-fetch: "npm:^3.0.0"
-    next: "npm:^14.0.2"
-  checksum: 10c0/f98ef7fa04ab4e49dacc0732a227e234a90a63d9d7a3e510a1c383ce4f6ca23e6a393f981e36ea68c0b2e6cb316a7c5fc97e47ce53a8bc20bbaa2afa383bf537
-  languageName: node
-  linkType: hard
-
 "copy-anything@npm:^4":
   version: 4.0.5
   resolution: "copy-anything@npm:4.0.5"
@@ -5313,6 +5313,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "custom-app-base@workspace:."
   dependencies:
+    "@assembly-js/node-sdk": "npm:^3.19.1"
     "@eslint/eslintrc": "npm:^3.3.1"
     "@eslint/js": "npm:^9.24.0"
     "@ngrok/ngrok": "npm:^1.4.1"
@@ -5331,7 +5332,6 @@ __metadata:
     autoprefixer: "npm:^10.4.0"
     bottleneck: "npm:^2.19.5"
     copilot-design-system: "npm:^2.0.10"
-    copilot-node-sdk: "npm:^3.11.1"
     dayjs: "npm:^1.11.13"
     deep-equal: "npm:^2.2.3"
     dotenv: "npm:^16.4.5"
