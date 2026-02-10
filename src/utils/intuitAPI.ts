@@ -23,6 +23,8 @@ import {
   QBAccountResponseSchema,
   CompanyInfoType,
   CompanyInfoSchema,
+  CustomerQueryResponseType,
+  CustomerQueryResponseSchema,
 } from '@/type/dto/intuitAPI.dto'
 import { RetryableError } from '@/utils/error'
 import CustomLogger from '@/utils/logger'
@@ -158,7 +160,9 @@ export default class IntuitAPI {
     return invoice
   }
 
-  async _createCustomer(payload: QBCustomerCreatePayloadType) {
+  async _createCustomer(
+    payload: QBCustomerCreatePayloadType,
+  ): Promise<CustomerQueryResponseType> {
     CustomLogger.info({
       obj: { payload },
       message: `IntuitAPI#createCustomer | customer creation start for realmId: ${this.tokens.intuitRealmId}. Payload: `,
@@ -185,7 +189,7 @@ export default class IntuitAPI {
       obj: { response: customer.Customer },
       message: `IntuitAPI#createCustomer | customer created with name = ${customer.Customer?.FullyQualifiedName}.`,
     })
-    return customer
+    return customer.Customer
   }
 
   async _createItem(payload: QBItemCreatePayloadType) {
@@ -253,17 +257,17 @@ export default class IntuitAPI {
     displayName: string,
     id?: undefined,
     includeInactive?: boolean,
-  ): Promise<BaseResponseType>
+  ): Promise<CustomerQueryResponseType>
   async _getACustomer(
     displayName: undefined,
     id: string,
     includeInactive?: boolean,
-  ): Promise<BaseResponseType>
+  ): Promise<CustomerQueryResponseType>
   async _getACustomer(
     displayName: string,
     id: string,
     includeInactive?: boolean,
-  ): Promise<BaseResponseType>
+  ): Promise<CustomerQueryResponseType>
   async _getACustomer(
     displayName?: string,
     id?: string,
@@ -286,7 +290,7 @@ export default class IntuitAPI {
     CustomLogger.info({
       message: `IntuitAPI#getACustomer | Customer query start for realmId: ${this.tokens.intuitRealmId}. Name: ${displayName}, Id: ${id}`,
     })
-    const customerQuery = `SELECT Id, SyncToken, Active FROM Customer WHERE ${queryCondition}`
+    const customerQuery = `SELECT Id, SyncToken, Active, PrimaryEmailAddr FROM Customer WHERE ${queryCondition}`
     const qbCustomers = await this.customQuery(customerQuery)
 
     if (!qbCustomers) return null
@@ -300,7 +304,8 @@ export default class IntuitAPI {
       )
     }
 
-    return qbCustomers.Customer?.[0]
+    if (!qbCustomers.Customer) return
+    return CustomerQueryResponseSchema.parse(qbCustomers.Customer[0])
   }
 
   /**
@@ -411,7 +416,9 @@ export default class IntuitAPI {
     return invoice
   }
 
-  async _customerSparseUpdate(payload: QBCustomerSparseUpdatePayloadType) {
+  async _customerSparseUpdate(
+    payload: QBCustomerSparseUpdatePayloadType,
+  ): Promise<CustomerQueryResponseType> {
     CustomLogger.info({
       obj: { payload },
       message: `IntuitAPI#customerSparseUpdate | customer sparse update start for realmId: ${this.tokens.intuitRealmId}. `,
@@ -438,7 +445,7 @@ export default class IntuitAPI {
       obj: { response: customer.Customer },
       message: `IntuitAPI#customerSparseUpdate | customer sparse updated with name = ${customer.Customer?.FullyQualifiedName}. `,
     })
-    return customer
+    return customer.Customer
   }
 
   async _itemFullUpdate(
@@ -814,17 +821,17 @@ export default class IntuitAPI {
       displayName: string,
       id?: undefined,
       includeInactive?: boolean,
-    ): Promise<BaseResponseType>
+    ): Promise<CustomerQueryResponseType>
     (
       displayName: undefined,
       id: string,
       includeInactive?: boolean,
-    ): Promise<BaseResponseType>
+    ): Promise<CustomerQueryResponseType>
     (
       displayName: string,
       id: string,
       includeInactive?: boolean,
-    ): Promise<BaseResponseType>
+    ): Promise<CustomerQueryResponseType>
   } = this.wrapWithRetry(this._getACustomer) as any
   getAnItem: {
     (
