@@ -308,12 +308,12 @@ export default class IntuitAPI {
     return CustomerQueryResponseSchema.parse(qbCustomers.Customer[0])
   }
 
-  async _getACustomerByEmail(
+  async _getCustomerByEmail(
     email: string,
   ): Promise<CustomerQueryResponseType | undefined> {
     CustomLogger.info({
       obj: { email },
-      message: `IntuitAPI#getACustomerByEmail | Customer query start for realmId: ${this.tokens.intuitRealmId}. Email: ${email}`,
+      message: `IntuitAPI#getCustomerByEmail | Customer query start for realmId: ${this.tokens.intuitRealmId}. Email: ${email}`,
     })
     const customerQuery = `SELECT Id, SyncToken, Active, PrimaryEmailAddr FROM Customer WHERE PrimaryEmailAddr = '${email}' AND Active in (true, false)`
     const qbCustomers = await this.customQuery(customerQuery)
@@ -324,7 +324,7 @@ export default class IntuitAPI {
       CustomLogger.error({ obj: qbCustomers.Fault?.Error, message: 'Error: ' })
       throw new APIError(
         qbCustomers.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getACustomerByEmail`,
+        `${IntuitAPIErrorMessage}getCustomerByEmail`,
         qbCustomers.Fault?.Error,
       )
     }
@@ -858,7 +858,7 @@ export default class IntuitAPI {
       includeInactive?: boolean,
     ): Promise<CustomerQueryResponseType>
   } = this.wrapWithRetry(this._getACustomer) as any
-  getACustomerByEmail = this.wrapWithRetry(this._getACustomerByEmail)
+  getCustomerByEmail = this.wrapWithRetry(this._getCustomerByEmail)
   getAnItem: {
     (
       name: string,

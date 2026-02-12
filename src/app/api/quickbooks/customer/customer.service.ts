@@ -336,7 +336,7 @@ export class CustomerService extends BaseService {
   }) {
     const displayName = recipientInfo.displayName
     // 2.1. search client in qb using recipient's email
-    let customer = await intuitApiService.getACustomerByEmail(
+    let customer = await intuitApiService.getCustomerByEmail(
       recipientInfo.email,
     )
 
