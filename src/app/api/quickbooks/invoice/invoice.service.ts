@@ -573,64 +573,14 @@ export class InvoiceService extends BaseService {
     let customer,
       existingCustomerMapId = existingCustomer?.id
     if (!existingCustomer) {
-      // 2.1. search client in qb using client's given name and family name
-      customer = await intuitApiService.getACustomer(
-        replaceSpecialCharsForQB(recipientInfo.displayName),
-        undefined,
-        true,
-      )
-
-      // 3. if not found, create a new client in the QB
-      if (!customer) {
-        console.info(
-          `InvoiceService#WebhookInvoiceCreated | Customer named ${recipientInfo.displayName} not found in QB. Creating new customer...`,
-        )
-        // Create a new customer in QB
-        let customerPayload: QBCustomerCreatePayloadType = {
-          DisplayName: replaceSpecialCharsForQB(recipientInfo.displayName),
-          CompanyName:
-            companyInfo && replaceSpecialCharsForQB(companyInfo.name),
-          PrimaryEmailAddr: {
-            Address: recipientInfo?.email || '',
-          },
-        }
-
-        if (recipientInfo.givenName && recipientInfo.familyName) {
-          customerPayload = {
-            ...customerPayload,
-            GivenName: replaceSpecialCharsForQB(recipientInfo.givenName),
-            FamilyName: replaceSpecialCharsForQB(recipientInfo.familyName),
-          }
-        }
-
-        const customerRes =
-          await intuitApiService.createCustomer(customerPayload)
-        customer = customerRes.Customer
-
-        console.info(
-          `InvoiceService#WebhookInvoiceCreated | Customer created in QB with ID: ${customer.Id}.`,
-        )
-      }
-
-      // create map for customer into mapping table
-      const customerSyncPayload = {
-        portalId: this.user.workspaceId,
-        customerId: recipientInfo.recipientId, // TODO: remove everything related to this field. in case anything goes off the track
-        clientCompanyId: recipientInfo.clientCompanyId,
-        clientId: invoiceResource.clientId || null,
-        companyId: invoiceResource.companyId || null,
-        givenName: recipientInfo.givenName,
-        familyName: recipientInfo.familyName,
-        displayName: recipientInfo.displayName,
-        email: recipientInfo.email,
-        companyName: companyInfo?.name,
-        qbSyncToken: customer.SyncToken,
-        qbCustomerId: customer.Id,
-      }
-
-      const customerSync =
-        await customerService.createQBCustomer(customerSyncPayload)
-      existingCustomerMapId = customerSync.id
+      const customerWName = await customerService.findOrCreateCustomer({
+        intuitApiService,
+        recipientInfo,
+        companyInfo,
+        invoiceResource,
+      })
+      customer = customerWName.customer
+      existingCustomerMapId = customerWName.customerSyncId
     } else {
       console.info('InvoiceService#webhookInvoiceCreated. Customer exists.')
 
@@ -645,20 +595,26 @@ export class InvoiceService extends BaseService {
           Address: recipientInfo.email,
         }
       }
-      if (existingCustomer.displayName !== recipientInfo.displayName) {
-        // DisplayName = GivenName + FamilyName + CompanyName (if exists)
-        sparseUpdatePayload.DisplayName = replaceSpecialCharsForQB(
-          recipientInfo.displayName,
-        )
-        sparseUpdatePayload.GivenName = replaceSpecialCharsForQB(
-          recipientInfo.givenName,
-        )
-        sparseUpdatePayload.FamilyName = replaceSpecialCharsForQB(
-          recipientInfo.familyName,
-        )
+      // if (existingCustomer.displayName !== recipientInfo.displayName) {
+      //   // DisplayName = GivenName + FamilyName + CompanyName (if exists)
+      //   sparseUpdatePayload.DisplayName = replaceSpecialCharsForQB(
+      //     recipientInfo.displayName,
+      //   )
+      //   sparseUpdatePayload.GivenName = replaceSpecialCharsForQB(
+      //     recipientInfo.givenName,
+      //   )
+      //   sparseUpdatePayload.FamilyName = replaceSpecialCharsForQB(
+      //     recipientInfo.familyName,
+      //   )
+      //   sparseUpdatePayload.CompanyName =
+      //     companyInfo && replaceSpecialCharsForQB(companyInfo.name)
+      // }
+
+      if (existingCustomer.companyName !== companyInfo?.name) {
         sparseUpdatePayload.CompanyName =
           companyInfo && replaceSpecialCharsForQB(companyInfo.name)
       }
+
       if (Object.keys(sparseUpdatePayload).length > 0) {
         const customerSparsePayload = {
           ...sparseUpdatePayload,
@@ -673,10 +629,9 @@ export class InvoiceService extends BaseService {
           sparse: true as const,
         }
 
-        const customerRes = await intuitApiService.customerSparseUpdate(
+        customer = await intuitApiService.customerSparseUpdate(
           customerSparsePayload,
         )
-        customer = customerRes.Customer
 
         // update the customer map in our table
         const customerSyncUpPayload = {
