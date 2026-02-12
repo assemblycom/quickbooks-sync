@@ -28,7 +28,6 @@ import { QBSyncLog } from '@/db/schema/qbSyncLogs'
 import { TransactionType, WhereClause } from '@/type/common'
 import {
   QBCustomerSparseUpdatePayloadType,
-  QBCustomerCreatePayloadType,
   QBDestructiveInvoicePayloadSchema,
   QBNameValueSchemaType,
   QBInvoiceLineItemSchemaType,
