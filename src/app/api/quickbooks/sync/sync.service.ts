@@ -24,6 +24,11 @@ import { QBPortalConnection } from '@/db/schema/qbPortalConnections'
 import { MAX_ATTEMPTS } from '@/constant/sync'
 import { captureMessage } from '@sentry/nextjs'
 import { AccountTypeObj } from '@/constant/qbConnection'
+import { ErrorMessageAndCode, getMessageAndCodeFromError } from '@/utils/error'
+import {
+  getCategory,
+  getDeletedAtForAuthAccountCategoryLog,
+} from '@/utils/synclog'
 
 export const runtime = 'nodejs'
 
@@ -61,6 +66,10 @@ export class SyncService extends BaseService {
         message: 'SyncService#processInvoiceCreate',
         obj: { error, invoiceNumber: record.invoiceNumber },
       })
+      await this.updateFailedSyncLog(
+        record.id,
+        getMessageAndCodeFromError(error),
+      )
     }
   }
 
@@ -88,6 +97,10 @@ export class SyncService extends BaseService {
         message: 'SyncService#processInvoicePaid',
         obj: { error, invoiceNumber: record.invoiceNumber },
       })
+      await this.updateFailedSyncLog(
+        record.id,
+        getMessageAndCodeFromError(error),
+      )
     }
   }
 
@@ -129,6 +142,10 @@ export class SyncService extends BaseService {
         message: 'SyncService#processInvoiceVoided',
         obj: { error, invoiceNumber: record.invoiceNumber },
       })
+      await this.updateFailedSyncLog(
+        record.id,
+        getMessageAndCodeFromError(error),
+      )
     }
   }
 
@@ -171,6 +188,10 @@ export class SyncService extends BaseService {
         message: 'SyncService#processInvoiceDeleted',
         obj: { error, invoiceNumber: record.invoiceNumber },
       })
+      await this.updateFailedSyncLog(
+        record.id,
+        getMessageAndCodeFromError(error),
+      )
     }
   }
 
@@ -264,6 +285,10 @@ export class SyncService extends BaseService {
         message: 'SyncService#processPaymentSucceededSync',
         obj: { error },
       })
+      await this.updateFailedSyncLog(
+        record.id,
+        getMessageAndCodeFromError(error),
+      )
     }
   }
 
@@ -293,6 +318,10 @@ export class SyncService extends BaseService {
           'SyncService#processProductCreate | Error while creating product',
         obj: { error, copilotId: record.copilotId },
       })
+      await this.updateFailedSyncLog(
+        record.id,
+        getMessageAndCodeFromError(error),
+      )
     }
   }
 
@@ -317,6 +346,10 @@ export class SyncService extends BaseService {
           'SyncService#processProductUpdate | Error while updating product',
         obj: { error },
       })
+      await this.updateFailedSyncLog(
+        record.id,
+        getMessageAndCodeFromError(error),
+      )
     }
   }
 
@@ -541,5 +574,23 @@ export class SyncService extends BaseService {
     })
 
     return { maxAttempts: false }
+  }
+
+  private async updateFailedSyncLog(
+    syncLogId: string,
+    error?: ErrorMessageAndCode,
+  ) {
+    const errorMessage = error?.message
+
+    const syncLogService = new SyncLogService(this.user)
+    await syncLogService.updateQBSyncLog(
+      {
+        status: LogStatus.FAILED,
+        errorMessage,
+        deletedAt: getDeletedAtForAuthAccountCategoryLog(error),
+        category: getCategory(error),
+      },
+      eq(QBSyncLog.id, syncLogId),
+    )
   }
 }
