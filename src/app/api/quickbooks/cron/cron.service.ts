@@ -37,8 +37,9 @@ export default class CronService {
     user.qbConnection = qbConnectionTokens
     const syncService = new SyncService(user)
 
-    const { suspended } = await syncService.checkAndSuspendAccount()
-    if (suspended) return
+    // TODO: update this on QB tech debt milestone
+    // const { suspended } = await syncService.checkAndSuspendAccount()
+    // if (suspended) return
     return await syncService.syncFailedRecords()
   }
 
