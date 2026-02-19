@@ -16,15 +16,16 @@
     "lint-staged": "npx lint-staged",
     "prepare": "husky",
     "supabase:dev": "supabase start --ignore-health-check",
-    "cmd:rename-qb-accounts": "tsx src/cmd/renameQbAccount/index.ts"
+    "cmd:rename-qb-accounts": "tsx src/cmd/renameQbAccount/index.ts",
+    "patch-assembly-node-sdk": "cp ./lib-patches/assembly-js-node-sdk.js ./node_modules/@assembly-js/node-sdk/dist/api/init.js"
   },
   "dependencies": {
+    "@assembly-js/node-sdk": "^3.19.1",
     "@sentry/nextjs": "^9.13.0",
     "@supabase/supabase-js": "^2.49.4",
     "@trigger.dev/sdk": "4.3.0",
     "bottleneck": "^2.19.5",
     "copilot-design-system": "^2.0.10",
-    "copilot-node-sdk": "^3.16.0",
     "dayjs": "^1.11.13",
     "deep-equal": "^2.2.3",
     "drizzle-orm": "^0.42.0",
