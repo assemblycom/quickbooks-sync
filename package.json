@@ -13,14 +13,15 @@
     "lint:fix": "npm run lint:check -- --fix",
     "prettier:fix": "prettier --write .",
     "lint-staged": "npx lint-staged",
-    "prepare": "husky"
+    "prepare": "husky",
+    "patch-assembly-node-sdk": "cp ./lib-patches/assembly-js-node-sdk.js ./node_modules/@assembly-js/node-sdk/dist/api/init.js"
   },
   "dependencies": {
+    "@assembly-js/node-sdk": "^3.19.1",
     "@sentry/nextjs": "^9.13.0",
     "@supabase/supabase-js": "^2.49.4",
     "bottleneck": "^2.19.5",
     "copilot-design-system": "^1.2.3",
-    "copilot-node-sdk": "^3.7.0",
     "dayjs": "^1.11.13",
     "drizzle-orm": "^0.42.0",
     "drizzle-zod": "^0.7.1",

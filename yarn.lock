@@ -29,6 +29,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@assembly-js/node-sdk@npm:^3.19.1":
+  version: 3.19.1
+  resolution: "@assembly-js/node-sdk@npm:3.19.1"
+  dependencies:
+    isomorphic-fetch: "npm:^3.0.0"
+    next: "npm:^14.0.2"
+  checksum: 10c0/8385b54c6426f7867db8c308c96f5e535aeab59ff1150fc96809d080a1004792920d0390e8a7d26775e5480a8a10f2b7f7db1d29c1e42267a9a03e12e8418785
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.27.1":
   version: 7.27.1
   resolution: "@babel/code-frame@npm:7.27.1"
@@ -4296,16 +4306,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"copilot-node-sdk@npm:^3.7.0":
-  version: 3.7.0
-  resolution: "copilot-node-sdk@npm:3.7.0"
-  dependencies:
-    isomorphic-fetch: "npm:^3.0.0"
-    next: "npm:^14.0.2"
-  checksum: 10c0/8001e8243e5c66ccf35cde59124925c0ebe9e74c6eee35b4c3d220130fe8b6e841b6f0cfb2209fc95278526f1e925d83a58e841faba4fed7010fa42c1ed6bb48
-  languageName: node
-  linkType: hard
-
 "cosmiconfig@npm:^7.0.0":
   version: 7.1.0
   resolution: "cosmiconfig@npm:7.1.0"
@@ -4381,6 +4381,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "custom-app-base@workspace:."
   dependencies:
+    "@assembly-js/node-sdk": "npm:^3.19.1"
     "@eslint/eslintrc": "npm:^3.3.1"
     "@eslint/js": "npm:^9.24.0"
     "@ngrok/ngrok": "npm:^1.4.1"
@@ -4394,7 +4395,6 @@ __metadata:
     autoprefixer: "npm:^10.4.0"
     bottleneck: "npm:^2.19.5"
     copilot-design-system: "npm:^1.2.3"
-    copilot-node-sdk: "npm:^3.7.0"
     dayjs: "npm:^1.11.13"
     dotenv: "npm:^16.4.5"
     drizzle-kit: "npm:^0.31.0"
