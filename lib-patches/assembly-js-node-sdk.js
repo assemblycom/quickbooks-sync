@@ -8,13 +8,13 @@ let SDK_VERSION = '3.19.1'
 const sdk = Assembly
 // Helper functions to check env vars at runtime (supports both new and old names)
 function getIsDebug() {
-  var _a
+  let _a
   return !!((_a = process.env.ASSEMBLY_DEBUG) !== null && _a !== void 0
     ? _a
     : process.env.COPILOT_DEBUG)
 }
 function getEnvMode() {
-  var _a
+  let _a
   return (_a = process.env.ASSEMBLY_ENV) !== null && _a !== void 0
     ? _a
     : process.env.COPILOT_ENV
@@ -101,16 +101,24 @@ export function assemblyApi({ apiKey, token: tokenString }) {
     )
     throw new Error('Unable to authorize Assembly SDK.')
   }
-  if (isDebug) {
-    console.log(`Authorizing with key: ${key}`)
-  }
 
   // TEMPORARY FIX: suppress sending tokenId to auth header if ASSEMBLY_SUPPRESS_TOKEN_ID is set
   const suppressTokenId = !!process.env.ASSEMBLY_SUPPRESS_TOKEN_ID
+
   if (suppressTokenId) {
-    const keySections = key.split('/')
-    key = `${keySections[0]}/${keySections[1]}`
-    SDK_VERSION = undefined // looks like this is being used to enable/disable expiry. Drop this just in case.
+    const [org, project] = key.split('/')
+
+    if (!org || !project) {
+      throw new Error(`Invalid auth header`)
+    }
+
+    key = `${org}/${project}`
+    // disable SDK version to prevent expiry logic from triggering (?)
+    SDK_VERSION = undefined
+  }
+
+  if (isDebug) {
+    console.log(`Authorizing with key: ${key}`)
   }
 
   OpenAPI.HEADERS = {
