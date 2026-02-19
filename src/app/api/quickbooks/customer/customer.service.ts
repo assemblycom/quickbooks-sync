@@ -205,7 +205,7 @@ export class CustomerService extends BaseService {
           givenName: client.givenName,
           displayName: `${client.givenName} ${client.familyName} (${company.name})`,
           type: 'client' as const,
-          email: client.email || '',
+          email: client.email,
           companyId: company.id,
           companyName: company.name,
         }
@@ -226,11 +226,11 @@ export class CustomerService extends BaseService {
     return {
       recipientInfo: {
         ...clientCompany,
-        familyName: client?.familyName || '',
-        givenName: client?.givenName || '',
+        familyName: client.familyName,
+        givenName: client.givenName,
         displayName,
-        email: client?.email || '',
-        companyId: client?.companyId || '',
+        email: client.email,
+        companyId: client.companyId,
       },
       companyInfo: company,
     }
@@ -335,10 +335,14 @@ export class CustomerService extends BaseService {
     invoiceResource: InvoiceCreatedResponseType['data']
   }) {
     const displayName = recipientInfo.displayName
-    // 2.1. search client in qb using recipient's email
-    let customer = await intuitApiService.getCustomerByEmail(
-      recipientInfo.email,
-    )
+    // 2.1. search client in qb using recipient's email or
+    let customer = recipientInfo.email
+      ? await intuitApiService.getCustomerByEmail(recipientInfo.email)
+      : await intuitApiService.getACustomer(
+          replaceSpecialCharsForQB(recipientInfo.displayName),
+          undefined,
+          true,
+        )
 
     // 3. if not found, create a new client in the QB
     if (!customer) {
@@ -350,7 +354,7 @@ export class CustomerService extends BaseService {
         DisplayName: displayName,
         CompanyName: companyInfo && replaceSpecialCharsForQB(companyInfo.name),
         PrimaryEmailAddr: {
-          Address: recipientInfo?.email || '',
+          Address: recipientInfo.email,
         },
       }
 
