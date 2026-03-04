@@ -707,7 +707,7 @@ export class ProductService extends BaseService {
       console.info(
         `ProductService#updateProductSyncToken. Item not found for Id ${qbItemId} in QuickBooks. Unmapping the product...`,
       )
-      if (updateMappingTable) await this.unmapProducts(qbItemId)
+      // if (updateMappingTable) await this.unmapProducts(qbItemId)
       return
     } else if (!item.Active) {
       console.info(
