@@ -4,6 +4,7 @@ import useClickOutside from '@/hook/useClickOutside'
 import { useDropdownPosition } from '@/hook/useDropdown'
 import {
   ProductDataType,
+  QBItemDataType,
   useMapItem,
   useProductTableSetting,
 } from '@/hook/useSettings'
@@ -14,12 +15,19 @@ const MapItemComponent = ({
   mappingItems,
   productId,
   priceId,
+  qbItems,
 }: {
   mappingItems: ProductMappingItemType[] | undefined
   productId: string
   priceId: string
+  qbItems: QBItemDataType[] | undefined
 }) => {
-  const { currentlyMapped } = useMapItem(mappingItems, productId, priceId)
+  const { currentlyMapped } = useMapItem(
+    mappingItems,
+    productId,
+    priceId,
+    qbItems,
+  )
   return (
     <>
       {currentlyMapped ? (
@@ -148,6 +156,7 @@ export default function ProductMappingTable({
                             mappingItems={mappingItems}
                             productId={product.id}
                             priceId={product.priceId}
+                            qbItems={quickbooksItems}
                           />
                         )}
                       </div>

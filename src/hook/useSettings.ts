@@ -203,7 +203,11 @@ export const useProductMappingSettings = () => {
       [index]: '',
     }))
     const fileteredChangedItem = changedItemReference.filter(
-      (item) => item.id !== products[index].id,
+      (item) =>
+        !(
+          item.id === products[index].id &&
+          item.priceId === products[index].priceId
+        ),
     )
     const newVal = [
       ...fileteredChangedItem,
@@ -448,6 +452,7 @@ export const useMapItem = (
   mappingItems: ProductMappingItemType[] | undefined,
   productId: string,
   priceId: string,
+  qbItems: QBItemDataType[] | undefined,
 ) => {
   const [currentlyMapped, setCurrentlyMapped] = useState<
     ProductMappingItemType | undefined
@@ -460,8 +465,24 @@ export const useMapItem = (
         item.qbItemId
       )
     })
-    setCurrentlyMapped(currentMapItem)
-    return currentMapItem
+    const currentQbItem = qbItems?.find((item) => {
+      return item.id === currentMapItem?.qbItemId
+    })
+
+    let itemToReturn: { name: string; unitPrice: string } | undefined
+    const itemName = currentQbItem?.name || currentMapItem?.name
+    const itemUnitPrice =
+      currentQbItem?.numericPrice.toFixed(2) || currentMapItem?.unitPrice
+
+    if (itemName && itemUnitPrice) {
+      itemToReturn = {
+        name: itemName,
+        unitPrice: itemUnitPrice,
+      }
+    }
+
+    setCurrentlyMapped(itemToReturn)
+    return itemToReturn
   }
 
   useEffect(() => {
