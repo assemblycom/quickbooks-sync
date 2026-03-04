@@ -397,6 +397,8 @@ export class ProductService extends BaseService {
     let itemCount = 0
 
     for (const product of mappedProducts) {
+      if (product.isExcluded) continue
+
       const qbItemId = z.string().parse(product.qbItemId)
       const productId = z.string().parse(product.productId)
 
