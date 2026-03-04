@@ -266,7 +266,7 @@ export class ProductService extends BaseService {
     const query = this.db
       .update(QBProductSync)
       .set(parsedInsertPayload)
-      .where(conditions)
+      .where(and(conditions, eq(QBProductSync.portalId, this.user.workspaceId)))
 
     const [product] = returningFields?.length
       ? await query.returning(
@@ -707,7 +707,7 @@ export class ProductService extends BaseService {
       console.info(
         `ProductService#updateProductSyncToken. Item not found for Id ${qbItemId} in QuickBooks. Unmapping the product...`,
       )
-      await this.unmapProducts(qbItemId)
+      if (updateMappingTable) await this.unmapProducts(qbItemId)
       return
     } else if (!item.Active) {
       console.info(
