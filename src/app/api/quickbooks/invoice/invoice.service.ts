@@ -494,10 +494,7 @@ export class InvoiceService extends BaseService {
 
       const feeAmount =
         payments.data.reduce((acc, payment) => {
-          if (
-            payment.feeAmount?.paidByClient &&
-            payment.feeAmount.paidByClient > 0
-          ) {
+          if (!!payment.feeAmount?.paidByClient) {
             return acc + payment.feeAmount.paidByClient
           }
           return acc
