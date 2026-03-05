@@ -231,7 +231,7 @@ export class ProductService extends BaseService {
               productId: item.id,
               priceId: item.priceId,
               name: item.isExcluded ? null : item.qbItem?.name,
-              description: item.isExcluded ? null : item.qbItem?.description,
+              description: item.isExcluded ? null : item.description,
               qbItemId: item.isExcluded ? null : item.qbItem?.id,
               qbSyncToken: item.isExcluded ? null : item.qbItem?.syncToken,
               copilotName: item.name,
