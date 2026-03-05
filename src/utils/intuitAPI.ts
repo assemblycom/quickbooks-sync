@@ -25,6 +25,7 @@ import {
   CompanyInfoSchema,
   CustomerQueryResponseType,
   CustomerQueryResponseSchema,
+  QBItemsResponseSchema,
 } from '@/type/dto/intuitAPI.dto'
 import { RetryableError } from '@/utils/error'
 import CustomLogger from '@/utils/logger'
@@ -408,7 +409,7 @@ export default class IntuitAPI {
       )
     }
 
-    return qbItems.Item
+    return QBItemsResponseSchema.parse(qbItems.Item)
   }
 
   async _invoiceSparseUpdate(payload: QBInvoiceSparseUpdatePayloadType) {
