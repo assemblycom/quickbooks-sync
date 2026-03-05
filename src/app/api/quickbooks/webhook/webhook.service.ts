@@ -8,7 +8,6 @@ import { PaymentService } from '@/app/api/quickbooks/payment/payment.service'
 import { ProductService } from '@/app/api/quickbooks/product/product.service'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
 import { SyncLogService } from '@/app/api/quickbooks/syncLog/syncLog.service'
-import { AccountErrorCodes } from '@/constant/intuitErrorCode'
 import { QBSyncLog } from '@/db/schema/qbSyncLogs'
 import {
   InvoiceCreatedResponseSchema,
@@ -20,7 +19,7 @@ import {
   WebhookEventResponseSchema,
   WebhookEventResponseType,
 } from '@/type/dto/webhook.dto'
-import { refreshTokenExpireMessage, validateAccessToken } from '@/utils/auth'
+import { validateAccessToken } from '@/utils/auth'
 import { CopilotAPI } from '@/utils/copilotAPI'
 import { ErrorMessageAndCode, getMessageAndCodeFromError } from '@/utils/error'
 import { IntuitAPITokensType } from '@/utils/intuitAPI'
