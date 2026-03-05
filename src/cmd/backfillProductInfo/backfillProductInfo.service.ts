@@ -78,35 +78,35 @@ export class BackfillProductInfoService extends BaseService {
       ])
 
       // 3. update the product info in our mapping table
-      for (const mproducts of mappedProducts) {
-        if (!mproducts.qbItemId) {
-          console.info(`Qb item id not found for product ${mproducts.name}`)
+      for (const mappedProduct of mappedProducts) {
+        if (!mappedProduct.qbItemId) {
+          console.info(`Qb item id not found for product ${mappedProduct.name}`)
           continue
         }
 
         const assemblyProduct = filteredAssemblyProducts.find(
-          (aproduct) => aproduct.id === mproducts.productId,
+          (item) => item.id === mappedProduct.productId,
         )
 
         if (!assemblyProduct) {
           console.info(
-            `Copilot product not found for product ${mproducts.name} ${mproducts.productId}`,
+            `Copilot product not found for product ${mappedProduct.name} ${mappedProduct.productId}`,
           )
           continue
         }
 
         // 4. get item from QB
         const qbItem = allQbItems?.find(
-          (item) => item.Id === mproducts.qbItemId,
+          (item) => item.Id === mappedProduct.qbItemId,
         )
         if (!qbItem) {
           console.info(
-            `Item not found in Quickbooks for product with assembly ID ${mproducts.productId}`,
+            `Item not found in Quickbooks for product with assembly ID ${mappedProduct.productId}`,
           )
         }
 
         console.info(
-          `\nUpdating item info in mapping table for product with QB id ${mproducts.qbItemId}. Product map id ${mproducts.id}`,
+          `\nUpdating item info in mapping table for product with QB id ${mappedProduct.qbItemId}. Product map id ${mappedProduct.id}`,
         )
 
         const payload = {
@@ -119,7 +119,7 @@ export class BackfillProductInfoService extends BaseService {
         }
         await productService.updateQBProduct(
           payload,
-          eq(QBProductSync.id, mproducts.id),
+          eq(QBProductSync.id, mappedProduct.id),
         )
       }
     } catch (error: unknown) {
