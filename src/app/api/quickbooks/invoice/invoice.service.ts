@@ -164,7 +164,8 @@ export class InvoiceService extends BaseService {
     const priceUpdatePayload = {
       copilotUnitPrice: itemAmount,
     }
-    const conditions = eq(QBProductSync.id, mappingId) as WhereClause
+    const conditions = eq(QBProductSync.id, mappingId)
+
     await productService.updateQBProduct(priceUpdatePayload, conditions)
     console.info('Copilot unit price updated in mapping table')
     return itemAmount
@@ -181,6 +182,19 @@ export class InvoiceService extends BaseService {
     incomeAccRef: string,
   ): Promise<InvoiceItemRefAndDescriptionType> {
     const productService = new ProductService(this.user)
+
+    // get product info from assembly
+    const productInfo = await this.copilot.getProduct(productId)
+    if (!productInfo) {
+      throw new APIError(
+        httpStatus.NOT_FOUND,
+        'Product not found. Id: ' + productId,
+      )
+    }
+    const productDescription = productInfo.description
+      ? convert(productInfo.description)
+      : ''
+
     const mapping = await productService.ensureProductExistsAndSyncToken(
       productId,
       priceId,
@@ -211,7 +225,7 @@ export class InvoiceService extends BaseService {
         return {
           ref: { value: mapping.qbItemId },
           amount: parseFloat(itemAmount) / 100,
-          productDescription: mapping.description || '',
+          productDescription,
           // classRef is optional. A classRef to the mapped QB item is checked every time for each item when creating an invoice.
           classRef: intuitItem.ClassRef,
         }
@@ -232,19 +246,10 @@ export class InvoiceService extends BaseService {
     }
 
     // 2. create a new product in QB company
-    const productInfo = await this.copilot.getProduct(productId)
     const priceInfo = await this.copilot.getPrice(priceId)
-    if (!productInfo) {
-      throw new APIError(
-        httpStatus.NOT_FOUND,
-        'Product not found. Id: ' + productId,
-      )
-    }
     if (!priceInfo) {
       throw new APIError(httpStatus.NOT_FOUND, 'Price not found. Id:' + priceId)
     }
-
-    const productDescription = convert(productInfo.description)
     const incomeAccRefVal = incomeAccRef
 
     // total products with the same product id
@@ -464,7 +469,7 @@ export class InvoiceService extends BaseService {
   ): Promise<QBInvoiceLineItemSchemaType | undefined> {
     const invoice = invoiceResource.data
     // check invoice fee is paid by client
-    const clientWithFee = invoice?.paymentMethodPreferences.find(
+    const clientWithFee = invoice?.paymentMethodPreferences?.find(
       (preference) => preference.feePaidByClient === true,
     )
     if (clientWithFee) {
@@ -489,7 +494,10 @@ export class InvoiceService extends BaseService {
 
       const feeAmount =
         payments.data.reduce((acc, payment) => {
-          if (payment.feeAmount.paidByClient > 0) {
+          if (
+            payment.feeAmount?.paidByClient &&
+            payment.feeAmount.paidByClient > 0
+          ) {
             return acc + payment.feeAmount.paidByClient
           }
           return acc
