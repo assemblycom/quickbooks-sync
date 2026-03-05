@@ -53,7 +53,10 @@ export class WebhookService extends BaseService {
     })
 
     // for webhook event price.create, terminate process if createNewProductFlag is false
-    if (WebhookEvents.PRICE_CREATED === payload.eventType) {
+    if (
+      WebhookEvents.PRICE_CREATED === payload.eventType ||
+      WebhookEvents.PRODUCT_UPDATED === payload.eventType
+    ) {
       const settingService = new SettingService(this.user)
       const setting = await settingService.getOneByPortalId([
         'createNewProductFlag',

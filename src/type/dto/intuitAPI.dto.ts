@@ -224,3 +224,28 @@ export const CustomerQueryResponseSchema = z.object({
 export type CustomerQueryResponseType = z.infer<
   typeof CustomerQueryResponseSchema
 >
+
+export const QBInvoiceResponseSchema = z.object({
+  Id: z.string(),
+  Balance: z.number(),
+  PrivateNote: z.string().optional(),
+  SyncToken: z.string(),
+})
+export type QBInvoiceResponseType = z.infer<typeof QBInvoiceResponseSchema>
+
+export const QBPurchaseResponseSchema = z.object({
+  Id: z.string(),
+  TotalAmt: z.number(),
+})
+export type QBPurchaseResponseType = z.infer<typeof QBPurchaseResponseSchema>
+
+export const QBItemsResponseSchema = z.array(
+  z.object({
+    Id: z.string(),
+    Name: z.string(),
+    UnitPrice: z.number(),
+    Description: z.string().nullish(),
+    SyncToken: z.string(),
+  }),
+)
+export type QBItemsResponseType = z.infer<typeof QBItemsResponseSchema>
