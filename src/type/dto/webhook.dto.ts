@@ -37,12 +37,14 @@ export const InvoiceCreatedResponseSchema = z.object({
     taxPercentage: z.number().default(0),
     sentDate: z.string().datetime().nullish(),
     dueDate: z.string().datetime().nullish(),
-    paymentMethodPreferences: z.array(
-      z.object({
-        type: z.string(),
-        feePaidByClient: z.boolean(),
-      }),
-    ),
+    paymentMethodPreferences: z
+      .array(
+        z.object({
+          type: z.string(),
+          feePaidByClient: z.boolean(),
+        }),
+      )
+      .optional(),
   }),
 })
 
