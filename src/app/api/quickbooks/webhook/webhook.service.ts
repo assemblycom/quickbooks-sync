@@ -91,6 +91,9 @@ export class WebhookService extends BaseService {
       case WebhookEvents.PAYMENT_SUCCEEDED:
         return await this.handlePaymentSucceeded(payload, qbTokenInfo)
 
+      case WebhookEvents.INVOICE_SENT:
+        return await this.handleInvoiceSent(payload, qbTokenInfo)
+
       default:
         console.error('WebhookService#handleWebhookEvent | Unknown event type')
     }
@@ -373,6 +376,38 @@ export class WebhookService extends BaseService {
         `WebhookService#handleWebhookEvent#handlePriceCreated :: Error | Portal Id: ${this.user.workspaceId} | PriceId: ${priceResource.id}`,
       )
       return
+    }
+  }
+
+  private async handleInvoiceSent(
+    payload: unknown,
+    qbTokenInfo: IntuitAPITokensType,
+  ) {
+    console.info('###### INVOICE SENT ######')
+    const parsedPayload = InvoiceCreatedResponseSchema.safeParse(payload)
+    if (!parsedPayload.success || !parsedPayload.data) {
+      console.error(
+        'WebhookService#handleInvoiceSent | Could not parse invoice response',
+      )
+      return
+    }
+    const parsedInvoiceResource = parsedPayload.data
+
+    try {
+      validateAccessToken(qbTokenInfo)
+      const invoiceService = new InvoiceService(this.user)
+      await invoiceService.webhookInvoiceCreated(parsedInvoiceResource, qbTokenInfo)
+    } catch (error: unknown) {
+      await this.pushFailedInvoiceToSyncLog(
+        EventType.CREATED,
+        parsedInvoiceResource.data.id,
+        parsedInvoiceResource.data.number,
+        parsedInvoiceResource.data.total,
+        getMessageAndCodeFromError(error),
+      )
+      console.error(
+        `WebhookService#handleInvoiceSent :: Error | Portal Id: ${this.user.workspaceId} | Invoice: ${parsedInvoiceResource.data.id}`,
+      )
     }
   }
 
