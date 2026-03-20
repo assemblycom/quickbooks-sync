@@ -5,5 +5,6 @@ export enum WebhookEvents {
   PRICE_CREATED = 'price.created',
   INVOICE_PAID = 'invoice.paid',
   INVOICE_VOIDED = 'invoice.voided',
+  INVOICE_UPDATED = 'invoice.updated',
   PAYMENT_SUCCEEDED = 'payment.succeeded',
 }

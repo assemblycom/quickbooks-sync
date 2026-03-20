@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "uq_qb_customers_client_company_id_active_idx" ON "qb_customers" USING btree ("client_company_id") WHERE "qb_customers"."deleted_at" is null;

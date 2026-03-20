@@ -85,6 +85,13 @@
       "when": 1766066307157,
       "tag": "20251218135827_add_attempts_is_suspended_category_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773990604565,
+      "tag": "20260320071004_add_unique_constraint_deleted_at_client_company_id",
+      "breakpoints": true
     }
   ]
 }
