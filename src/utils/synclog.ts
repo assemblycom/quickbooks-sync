@@ -18,6 +18,6 @@ export function getDeletedAtForAuthAccountCategoryLog(
   errorWithCode?: ErrorMessageAndCode,
 ) {
   const category = getCategory(errorWithCode)
-  if (category !== FailedRecordCategoryType.OTHERS) return new Date()
+  if (category === FailedRecordCategoryType.ACCOUNT) return new Date()
   return
 }
