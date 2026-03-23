@@ -685,9 +685,12 @@ export class InvoiceService extends BaseService {
       return acc + item.Amount
     }, 0)
     let actualTotalAmount = subtotal
-    const totalTax = parseFloat(
-      ((subtotal * invoiceResource.taxPercentage) / 100).toFixed(2),
-    )
+    const totalTax =
+      (invoiceResource.taxPercentage
+        ? parseFloat(
+            ((subtotal * invoiceResource.taxPercentage) / 100).toFixed(2),
+          )
+        : invoiceResource.taxAmount) || 0
 
     // check if invoice is paid. This needs to be done after actualTotalAmount and totalTax calculation to avoid miscalculation
     if (invoiceResource.status === InvoiceStatus.PAID) {
@@ -1127,5 +1130,51 @@ export class InvoiceService extends BaseService {
       qbTokenInfo.incomeAccountRef,
     )
     return z.string().parse(incomeAccountRef)
+  }
+
+  async checkIfInvoiceExistsInQBO(
+    invoiceResource: InvoiceCreatedResponseType,
+    qbTokenInfo: IntuitAPITokensType,
+  ): Promise<{ exists: boolean }> {
+    console.info(
+      'InvoiceService#checkIfInvoiceExistsInQBO | Checking if invoice exists in QBO',
+    )
+    const invoice = invoiceResource.data
+    const intuitApi = new IntuitAPI(qbTokenInfo)
+    const qbInvoice = await intuitApi.getInvoice(invoice.number)
+
+    if (!qbInvoice) {
+      console.info(
+        'InvoiceService#checkIfInvoiceExistsInQBO | No invoice found in QBO',
+      )
+      return { exists: false }
+    }
+
+    const customerService = new CustomerService(this.user)
+
+    const { recipientInfo } = await customerService.getRecipientInfo({
+      clientId: invoice.clientId,
+      companyId: invoice.companyId,
+    })
+
+    await this.logSync(
+      invoice.id,
+      {
+        qbInvoiceId: qbInvoice.Id,
+        invoiceNumber: invoice.number,
+      },
+      EventType.CREATED,
+      {
+        amount: (invoice.lineItems[0].amount * 100).toFixed(2),
+        taxAmount: invoice.taxAmount ? invoice.taxAmount.toFixed(2) : '0',
+        customerName: recipientInfo.displayName,
+        customerEmail: recipientInfo.email,
+        errorMessage: '',
+      },
+    )
+    console.info(
+      'InvoiceService#checkIfInvoiceExistsInQBO | Invoice exists in QBO',
+    )
+    return { exists: true }
   }
 }

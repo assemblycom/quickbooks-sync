@@ -1,3 +1,4 @@
+import APIError from '@/app/api/core/exceptions/api'
 import User from '@/app/api/core/models/User.model'
 import { BaseService } from '@/app/api/core/services/base.service'
 import { SyncableEntity } from '@/app/api/core/types/invoice'
@@ -34,6 +35,7 @@ import {
 } from '@/utils/synclog'
 import dayjs from 'dayjs'
 import { z } from 'zod'
+import httpStatus from 'http-status'
 
 export class PaymentService extends BaseService {
   private syncLogService: SyncLogService
@@ -190,6 +192,10 @@ export class PaymentService extends BaseService {
     invoice: InvoiceResponse | undefined,
   ): Promise<void> {
     const paymentResource = parsedPaymentSucceedResource.data
+
+    if (!paymentResource.feeAmount)
+      throw new APIError(httpStatus.BAD_REQUEST, 'Fee amount is not found')
+
     const intuitApi = new IntuitAPI(qbTokenInfo)
     const tokenService = new TokenService(this.user)
     const assetAccountRef = await tokenService.checkAndUpdateAccountStatus(

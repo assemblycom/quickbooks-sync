@@ -49,7 +49,10 @@ import { copilotApi } from 'copilot-node-sdk'
 import { z } from 'zod'
 import { API_DOMAIN } from '@/constant/domains'
 import httpStatus from 'http-status'
-import { MAX_INVOICE_LIST_LIMIT } from '@/app/api/core/constants/limit'
+import {
+  MAX_ASSEMBLY_RESOURCE_LIST_LIMIT,
+  MAX_INVOICE_LIST_LIMIT,
+} from '@/app/api/core/constants/limit'
 
 export class CopilotAPI {
   copilot: SDK
@@ -435,10 +438,15 @@ export class CopilotAPI {
     return z.array(InvoiceResponseSchema).parse(data.data)
   }
 
-  async _getPayments(invoiceId: string): Promise<PaymentsResponse | undefined> {
+  async _getPayments(
+    invoiceId?: string,
+  ): Promise<PaymentsResponse | undefined> {
     console.info('CopilotAPI#getPayments | token =', this.token)
     return PaymentsResponseSchema.parse(
-      await this.copilot.listPayments({ invoiceId }),
+      await this.copilot.listPayments({
+        invoiceId,
+        limit: MAX_ASSEMBLY_RESOURCE_LIST_LIMIT.toString(),
+      }),
     )
   }
 

@@ -249,3 +249,8 @@ export const QBItemsResponseSchema = z.array(
   }),
 )
 export type QBItemsResponseType = z.infer<typeof QBItemsResponseSchema>
+
+export const SingleIdAndTokenResponseSchema = z.object({
+  Id: z.string(),
+  SyncToken: z.string(),
+})

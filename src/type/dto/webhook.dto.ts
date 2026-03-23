@@ -34,7 +34,8 @@ export const InvoiceCreatedResponseSchema = z.object({
     companyId: z.string().uuid().or(z.literal('')), // allow uuid or empty string
     status: z.nativeEnum(InvoiceStatus),
     total: z.number(),
-    taxPercentage: z.number().default(0),
+    taxPercentage: z.number().default(0).nullable(),
+    taxAmount: z.number().default(0).nullable(),
     sentDate: z.string().datetime().nullish(),
     dueDate: z.string().datetime().nullish(),
     paymentMethodPreferences: z
@@ -116,7 +117,8 @@ export const InvoiceResponseSchema = z.object({
     number: z.string(),
     status: z.nativeEnum(InvoiceStatus),
     total: z.number(),
-    taxPercentage: z.number().default(0),
+    taxPercentage: z.number().default(0).nullable(),
+    taxAmount: z.number().default(0).nullable(),
     // recipientId: z.string(),
     clientId: z.string().uuid().or(z.literal('')), // allow uuid or empty string
     companyId: z.string().uuid().or(z.literal('')), // allow uuid or empty string
@@ -131,10 +133,12 @@ export const PaymentSucceededResponseSchema = z.object({
     status: z.nativeEnum(PaymentStatus),
     paymentMethod: z.string(),
     brand: z.string(),
-    feeAmount: z.object({
-      paidByPlatform: z.number(),
-      paidByClient: z.number(),
-    }),
+    feeAmount: z
+      .object({
+        paidByPlatform: z.number(),
+        paidByClient: z.number(),
+      })
+      .nullable(),
     createdAt: z.string().datetime(),
   }),
 })

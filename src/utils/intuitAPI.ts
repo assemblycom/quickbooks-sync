@@ -26,6 +26,7 @@ import {
   CustomerQueryResponseType,
   CustomerQueryResponseSchema,
   QBItemsResponseSchema,
+  SingleIdAndTokenResponseSchema,
 } from '@/type/dto/intuitAPI.dto'
 import { RetryableError } from '@/utils/error'
 import CustomLogger from '@/utils/logger'
@@ -572,6 +573,38 @@ export default class IntuitAPI {
     return payment
   }
 
+  async _getInvoice(invoiceNumber: string) {
+    CustomLogger.info({
+      obj: { invoiceNumber },
+      message: `IntuitAPI#getInvoice | invoice query start for realmId: ${this.tokens.intuitRealmId}. `,
+    })
+    const query = `select Id, SyncToken, DocNumber from Invoice where DocNumber = '${invoiceNumber}' maxresults 1`
+    const invoice = await this.customQuery(query)
+
+    if (!invoice)
+      throw new APIError(
+        httpStatus.BAD_REQUEST,
+        'IntuitAPI#getInvoice | message = no response',
+      )
+
+    if (invoice?.Fault) {
+      CustomLogger.error({ obj: invoice.Fault?.Error, message: 'Error: ' })
+      throw new APIError(
+        invoice.Fault?.Error?.code || httpStatus.BAD_REQUEST,
+        `${IntuitAPIErrorMessage}getInvoice`,
+        invoice.Fault?.Error,
+      )
+    }
+
+    if (!invoice.Invoice) return null
+
+    CustomLogger.info({
+      obj: { response: invoice.Invoice },
+      message: `IntuitAPI#getInvoice | invoice fetched with doc number = ${invoiceNumber}.`,
+    })
+    return SingleIdAndTokenResponseSchema.parse(invoice.Invoice[0])
+  }
+
   async _voidInvoice(payload: QBDestructiveInvoicePayloadSchema) {
     CustomLogger.info({
       obj: { payload },
@@ -882,6 +915,7 @@ export default class IntuitAPI {
   customerSparseUpdate = this.wrapWithRetry(this._customerSparseUpdate)
   itemFullUpdate = this.wrapWithRetry(this._itemFullUpdate)
   createPayment = this.wrapWithRetry(this._createPayment)
+  getInvoice = this.wrapWithRetry(this._getInvoice)
   voidInvoice = this.wrapWithRetry(this._voidInvoice)
   deleteInvoice = this.wrapWithRetry(this._deleteInvoice)
   getAnAccount: {
