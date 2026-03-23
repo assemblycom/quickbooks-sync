@@ -385,7 +385,7 @@ export class WebhookService extends BaseService {
     payload: unknown,
     qbTokenInfo: IntuitAPITokensType,
   ) {
-    await sleep(1000) // Payment succeed event can sometimes trigger before invoice created.
+    await sleep(7000) // Payment succeed event can sometimes trigger before invoice created.
 
     console.info('###### PAYMENT SUCCEEDED ######')
     const parsedPaymentSucceed =
@@ -397,8 +397,9 @@ export class WebhookService extends BaseService {
       return
     }
     const parsedPaymentSucceedResource = parsedPaymentSucceed.data
+    const feeAmount = parsedPaymentSucceedResource.data.feeAmount
 
-    if (parsedPaymentSucceedResource.data.feeAmount.paidByPlatform > 0) {
+    if (feeAmount?.paidByPlatform && feeAmount.paidByPlatform > 0) {
       // check if absorbed fee flag is true
       const settingService = new SettingService(this.user)
       const setting = await settingService.getOneByPortalId(['absorbedFeeFlag'])
@@ -444,6 +445,7 @@ export class WebhookService extends BaseService {
       } catch (error: unknown) {
         const errorWithCode = getMessageAndCodeFromError(error)
         const errorMessage = errorWithCode.message
+        const feeAmount = parsedPaymentSucceedResource.data.feeAmount
 
         await syncLogService.updateOrCreateQBSyncLog({
           portalId: this.user.workspaceId,
@@ -451,10 +453,7 @@ export class WebhookService extends BaseService {
           eventType: EventType.SUCCEEDED,
           status: LogStatus.FAILED,
           copilotId: parsedPaymentSucceedResource.data.id,
-          feeAmount:
-            parsedPaymentSucceedResource.data.feeAmount.paidByPlatform.toFixed(
-              2,
-            ),
+          feeAmount: feeAmount ? feeAmount.paidByPlatform.toFixed(2) : '0',
           remark: 'Absorbed fees',
           qbItemName: 'Assembly Fees',
           errorMessage,
