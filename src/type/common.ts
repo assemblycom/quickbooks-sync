@@ -356,7 +356,7 @@ const PaymentResponseSchema = z.object({
     .nullable(),
 })
 export const PaymentsResponseSchema = z.object({
-  data: z.array(PaymentResponseSchema).optional(),
+  data: z.array(PaymentResponseSchema).nullish(),
 })
 export type PaymentsResponse = z.infer<typeof PaymentsResponseSchema>
 
