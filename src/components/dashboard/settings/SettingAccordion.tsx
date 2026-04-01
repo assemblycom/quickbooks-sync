@@ -47,7 +47,7 @@ export default function SettingAccordion({
   const accordionItems = [
     {
       id: 'product-mapping',
-      header: 'Product Mapping',
+      header: 'Service Mapping',
       content: (
         <ProductMapping
           openDropdowns={openDropdowns}
