@@ -424,7 +424,7 @@ export class InvoiceService extends BaseService {
     intuitService: IntuitAPI,
     incomeAccRefVal: string,
   ): Promise<string> {
-    const productName = 'Services'
+    const productName = 'Assembly Service'
     const tokenService = new TokenService(this.user)
 
     const existingProduct = await intuitService.getAnItem(productName)
@@ -453,7 +453,7 @@ export class InvoiceService extends BaseService {
       updatedAt: dayjs().toDate(),
     }
 
-    console.info("Store the 'Assembly fee paid by Client' item ref in DB")
+    console.info(`Store the ${productName} item ref in DB`)
     await tokenService.updateQBPortalConnection(
       updatedPayload,
       eq(QBPortalConnection.portalId, this.user.workspaceId),

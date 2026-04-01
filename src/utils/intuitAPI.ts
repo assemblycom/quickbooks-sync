@@ -392,7 +392,7 @@ export default class IntuitAPI {
       message: `IntuitAPI#getAllItems | Item query start for realmId: ${this.tokens.intuitRealmId}`,
     })
     const stringColumns = columns.map((column) => `${column}`).join(',')
-    const customerQuery = `select ${stringColumns} from Item where Type IN ('Service', 'Inventory', 'NonInventory') maxresults ${limit}` // Other items with type "Category" cannot be used in invoice line item. It throws an error.
+    const customerQuery = `select ${stringColumns} from Item where Type = 'Service' maxresults ${limit}` // Only get service items
     CustomLogger.info({
       obj: { customerQuery },
       message: 'IntuitAPI#getAllItems',
