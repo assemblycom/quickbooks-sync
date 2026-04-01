@@ -90,7 +90,7 @@ export class WebhookService extends BaseService {
         return await this.handleInvoiceVoided(payload, qbTokenInfo)
 
       case WebhookEvents.INVOICE_UPDATED:
-        await sleep(7000) // invoice.updated event is triggered even when invoice created
+        await sleep(10000) // invoice.updated event is triggered even when invoice created
         return await this.handleInvoiceCreated(payload, qbTokenInfo)
 
       case WebhookEvents.PAYMENT_SUCCEEDED:
