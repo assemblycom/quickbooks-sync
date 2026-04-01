@@ -28,7 +28,7 @@ const DashboardCallout = (lastSyncTime: string | null) => ({
   [CalloutVariant.WARNING]: {
     title: 'Finalize your integration',
     description:
-      "Review your settings and product mappings to finalize the integration. Once you're ready, click the button to enable the sync.",
+      "Review your settings and service mappings to finalize the integration. Once you're ready, click the button to enable the sync.",
     actionLabel: 'Enable app',
     actionIcon: 'Check' as IconType,
     buttonVariant: 'primary' as const,
