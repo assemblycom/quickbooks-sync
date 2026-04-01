@@ -59,8 +59,8 @@ export default function ProductMapping({
         <div className="mt-2 mb-6">
           <div className="mb-5">
             <Checkbox
-              label="Sync Assembly products to QuickBooks"
-              description="Automatically create and update QuickBooks items when products are created or updated in Assembly."
+              label="Sync Assembly services to QuickBooks"
+              description="Automatically create and update QuickBooks items when services are created or updated in Assembly."
               checked={setting.settingState.createNewProductFlag}
               onChange={() =>
                 setting.changeSettings(
