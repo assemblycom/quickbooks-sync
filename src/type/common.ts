@@ -230,6 +230,7 @@ export const ProductResponseSchema = z.object({
   status: z.nativeEnum(ProductStatus),
   object: z.string(),
   createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime().optional(),
 })
 export type ProductResponse = z.infer<typeof ProductResponseSchema>
 
