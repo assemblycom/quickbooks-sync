@@ -9,7 +9,8 @@ import { encodePayload } from '@/utils/crypto'
 import CustomLogger from '@/utils/logger'
 
 /**
- * This script is used to sync missed products that have payment records but no product records in QBO.
+ * This script updates mapped products in QBO whose names were changed in Assembly
+ * during a specific date window but were missed during regular sync.
  */
 
 // command to run the script: `yarn run cmd:sync-missed-products`
