@@ -13,6 +13,10 @@ import { QBItemFullUpdatePayloadType } from '@/type/dto/intuitAPI.dto'
 import { QBProductSync } from '@/db/schema/qbProductSync'
 import CustomLogger from '@/utils/logger'
 
+// Products updated during this window were missed during regular sync
+const SYNC_WINDOW_START = new Date('2026-02-17T00:00:00.000Z')
+const SYNC_WINDOW_END = new Date('2026-02-20T00:00:00.000Z') // exclusive
+
 export class SyncMissedProductsService extends BaseService {
   async _syncMissedProductsForPortal() {
     try {
@@ -21,8 +25,8 @@ export class SyncMissedProductsService extends BaseService {
       )
 
       // 1. Get all the products for the portal
-      const copliotApi = new CopilotAPI(this.user.token)
-      const allProducts = await copliotApi.getProducts(
+      const copilotApi = new CopilotAPI(this.user.token)
+      const allProducts = await copilotApi.getProducts(
         undefined,
         undefined,
         MAX_PRODUCT_LIST_LIMIT,
@@ -31,8 +35,8 @@ export class SyncMissedProductsService extends BaseService {
       const filteredProducts = allProducts?.data?.filter(
         (product) =>
           product.updatedAt &&
-          new Date(product.updatedAt) >= new Date('2026-02-17') &&
-          new Date(product.updatedAt) <= new Date('2026-02-19'),
+          new Date(product.updatedAt) >= SYNC_WINDOW_START &&
+          new Date(product.updatedAt) < SYNC_WINDOW_END,
       )
 
       if (!filteredProducts?.length) {
@@ -131,21 +135,28 @@ export class SyncMissedProductsService extends BaseService {
     payload: QBItemFullUpdatePayloadType,
     recordId: string,
   ) {
-    const response = await intuitApi.itemFullUpdate(payload)
-    CustomLogger.info({
-      obj: { response },
-      message: `SyncMissedProductsService#updateQbProduct | Product updated in Quickbooks for product id: ${recordId}`,
-    })
+    try {
+      const response = await intuitApi.itemFullUpdate(payload)
+      CustomLogger.info({
+        obj: { response },
+        message: `SyncMissedProductsService#updateQbProduct | Product updated in Quickbooks for product id: ${recordId}`,
+      })
 
-    // update the product map in mapping table
-    const updatePayload = {
-      name: response.Item.Name,
-      qbSyncToken: response.Item.SyncToken,
+      // update the product map in mapping table
+      const updatePayload = {
+        name: response.Item.Name,
+        qbSyncToken: response.Item.SyncToken,
+      }
+      await this.db
+        .update(QBProductSync)
+        .set(updatePayload)
+        .where(eq(QBProductSync.id, recordId))
+    } catch (error) {
+      CustomLogger.error({
+        message: `SyncMissedProductsService#updateQbProduct | Failed to update product: ${recordId}`,
+        obj: { error, recordId },
+      })
     }
-    await this.db
-      .update(QBProductSync)
-      .set(updatePayload)
-      .where(eq(QBProductSync.id, recordId))
   }
 
   private wrapWithRetry<Args extends unknown[], R>(
