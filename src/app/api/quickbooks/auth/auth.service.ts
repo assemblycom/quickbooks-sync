@@ -58,23 +58,23 @@ export class AuthService extends BaseService {
   ) {
     // manage acc ref from intuit and store in qbPortalConnections table
     const incomeAccountRef = await tokenService.checkAndUpdateAccountStatus(
-        AccountTypeObj.Income,
-        payload.intuitRealmId,
-        intuitApi,
-        payload.incomeAccountRef,
-      ),
-      expenseAccountRef = await tokenService.checkAndUpdateAccountStatus(
-        AccountTypeObj.Expense,
-        payload.intuitRealmId,
-        intuitApi,
-        payload.expenseAccountRef,
-      ),
-      assetAccountRef = await tokenService.checkAndUpdateAccountStatus(
-        AccountTypeObj.Asset,
-        payload.intuitRealmId,
-        intuitApi,
-        payload.assetAccountRef,
-      )
+      AccountTypeObj.Income,
+      payload.intuitRealmId,
+      intuitApi,
+      payload.incomeAccountRef,
+    )
+    const expenseAccountRef = await tokenService.checkAndUpdateAccountStatus(
+      AccountTypeObj.Expense,
+      payload.intuitRealmId,
+      intuitApi,
+      payload.expenseAccountRef,
+    )
+    const assetAccountRef = await tokenService.checkAndUpdateAccountStatus(
+      AccountTypeObj.Asset,
+      payload.intuitRealmId,
+      intuitApi,
+      payload.assetAccountRef,
+    )
     return { ...payload, incomeAccountRef, expenseAccountRef, assetAccountRef }
   }
 

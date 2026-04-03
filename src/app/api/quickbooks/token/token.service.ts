@@ -171,9 +171,9 @@ export class TokenService extends BaseService {
     )
   }
 
-  async manageIncomeAccountRef(intuitApi: IntuitAPI): Promise<string> {
+  private async manageIncomeAccountRef(intuitApi: IntuitAPI): Promise<string> {
     const existingIncomeAccRef = await intuitApi.getSingleIncomeAccount()
-    if (existingIncomeAccRef) {
+    if (existingIncomeAccRef?.Id) {
       return existingIncomeAccRef.Id
     }
 
@@ -192,10 +192,10 @@ export class TokenService extends BaseService {
     return incomeAccRef.Id
   }
 
-  async manageExpenseAccountRef(intuitApi: IntuitAPI): Promise<string> {
+  private async manageExpenseAccountRef(intuitApi: IntuitAPI): Promise<string> {
     const accName = 'Assembly Processing Fees'
     const existingAccount = await intuitApi.getAnAccount(accName)
-    if (existingAccount) {
+    if (existingAccount?.Id) {
       return existingAccount.Id
     }
 
@@ -210,17 +210,19 @@ export class TokenService extends BaseService {
     return expenseAccRef.Id
   }
 
-  async manageAssetAccountRef(intuitApi: IntuitAPI): Promise<string> {
+  private async manageAssetAccountRef(intuitApi: IntuitAPI): Promise<string> {
     const accName = 'Assembly General Asset'
     const existingAccount = await intuitApi.getAnAccount(accName)
-    if (existingAccount) {
+    if (existingAccount?.Id) {
       return existingAccount.Id
     }
 
+    // Need to create this account as the source of cash for the company. This account will be referenced while creating a purchase as Expense for absorbed fee.
+    // Docs: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/account#the-account-object
     const payload = {
       Name: accName,
       Classification: 'Asset',
-      AccountType: 'Bank',
+      AccountType: 'Bank', // Create Bank account. Default account subtype is "CashOnHand".
       Active: true,
     }
     const assetAccRef = await intuitApi.createAccount(payload)
