@@ -171,14 +171,16 @@ export class TokenService extends BaseService {
     )
   }
 
-  private async manageIncomeAccountRef(intuitApi: IntuitAPI): Promise<string> {
+  private async getOrCreateIncomeAccountRef(
+    intuitApi: IntuitAPI,
+  ): Promise<string> {
     const existingIncomeAccRef = await intuitApi.getSingleIncomeAccount()
     if (existingIncomeAccRef?.Id) {
       return existingIncomeAccRef.Id
     }
 
     console.info(
-      'TokenService#manageIncomeAccountRef | No existing income account found. Creating new one.',
+      'TokenService#getOrCreateIncomeAccountRef | No existing income account found. Creating new one.',
     )
 
     const payload = {
@@ -192,12 +194,18 @@ export class TokenService extends BaseService {
     return incomeAccRef.Id
   }
 
-  private async manageExpenseAccountRef(intuitApi: IntuitAPI): Promise<string> {
+  private async getOrCreateExpenseAccountRef(
+    intuitApi: IntuitAPI,
+  ): Promise<string> {
     const accName = 'Assembly Processing Fees'
     const existingAccount = await intuitApi.getAnAccount(accName)
     if (existingAccount?.Id) {
       return existingAccount.Id
     }
+
+    console.info(
+      'TokenService#getOrCreateExpenseAccountRef | No existing expense account found. Creating new one.',
+    )
 
     const payload = {
       Name: accName,
@@ -210,12 +218,18 @@ export class TokenService extends BaseService {
     return expenseAccRef.Id
   }
 
-  private async manageAssetAccountRef(intuitApi: IntuitAPI): Promise<string> {
+  private async getOrCreateAssetAccountRef(
+    intuitApi: IntuitAPI,
+  ): Promise<string> {
     const accName = 'Assembly General Asset'
     const existingAccount = await intuitApi.getAnAccount(accName)
     if (existingAccount?.Id) {
       return existingAccount.Id
     }
+
+    console.info(
+      'TokenService#getOrCreateAssetAccountRef | No existing asset account found. Creating new one.',
+    )
 
     // Need to create this account as the source of cash for the company. This account will be referenced while creating a purchase as Expense for absorbed fee.
     // Docs: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/account#the-account-object
@@ -235,11 +249,11 @@ export class TokenService extends BaseService {
   ): Promise<string> {
     switch (accountType) {
       case AccountTypeObj.Income:
-        return this.manageIncomeAccountRef(intuitApi)
+        return this.getOrCreateIncomeAccountRef(intuitApi)
       case AccountTypeObj.Expense:
-        return this.manageExpenseAccountRef(intuitApi)
+        return this.getOrCreateExpenseAccountRef(intuitApi)
       case AccountTypeObj.Asset:
-        return this.manageAssetAccountRef(intuitApi)
+        return this.getOrCreateAssetAccountRef(intuitApi)
       default:
         throw new APIError(
           httpStatus.BAD_REQUEST,
