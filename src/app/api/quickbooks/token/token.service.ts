@@ -140,31 +140,26 @@ export class TokenService extends BaseService {
     return portal
   }
 
-  private async removeAccountMapping(
+  private async updateAccountMapping(
     accountType: AccountType,
     realmId: string,
+    accountRef: string,
   ) {
     let payload = {}
     switch (accountType) {
       case AccountTypeObj.Income:
-        payload = {
-          incomeAccountRef: '',
-        }
+        payload = { incomeAccountRef: accountRef }
         break
       case AccountTypeObj.Expense:
-        payload = {
-          expenseAccountRef: '',
-        }
+        payload = { expenseAccountRef: accountRef }
         break
       case AccountTypeObj.Asset:
-        payload = {
-          assetAccountRef: '',
-        }
+        payload = { assetAccountRef: accountRef }
         break
       default:
         throw new APIError(
           httpStatus.BAD_REQUEST,
-          `Cannot remove account mapping for account type ${accountType}`,
+          `Cannot update account mapping for account type ${accountType}`,
         )
     }
     await this.updateQBPortalConnection(
@@ -176,13 +171,95 @@ export class TokenService extends BaseService {
     )
   }
 
+  async manageIncomeAccountRef(intuitApi: IntuitAPI): Promise<string> {
+    const existingIncomeAccRef = await intuitApi.getSingleIncomeAccount()
+    if (existingIncomeAccRef) {
+      return existingIncomeAccRef.Id
+    }
+
+    console.info(
+      'TokenService#manageIncomeAccountRef | No existing income account found. Creating new one.',
+    )
+
+    const payload = {
+      Name: 'Assembly SOP Income',
+      Classification: 'Revenue',
+      AccountType: 'Income',
+      AccountSubType: 'SalesOfProductIncome',
+      Active: true,
+    }
+    const incomeAccRef = await intuitApi.createAccount(payload)
+    return incomeAccRef.Id
+  }
+
+  async manageExpenseAccountRef(intuitApi: IntuitAPI): Promise<string> {
+    const accName = 'Assembly Processing Fees'
+    const existingAccount = await intuitApi.getAnAccount(accName)
+    if (existingAccount) {
+      return existingAccount.Id
+    }
+
+    const payload = {
+      Name: accName,
+      Classification: 'Expense',
+      AccountType: 'Expense',
+      AccountSubType: 'FinanceCosts',
+      Active: true,
+    }
+    const expenseAccRef = await intuitApi.createAccount(payload)
+    return expenseAccRef.Id
+  }
+
+  async manageAssetAccountRef(intuitApi: IntuitAPI): Promise<string> {
+    const accName = 'Assembly General Asset'
+    const existingAccount = await intuitApi.getAnAccount(accName)
+    if (existingAccount) {
+      return existingAccount.Id
+    }
+
+    const payload = {
+      Name: accName,
+      Classification: 'Asset',
+      AccountType: 'Bank',
+      Active: true,
+    }
+    const assetAccRef = await intuitApi.createAccount(payload)
+    return assetAccRef.Id
+  }
+
+  private async restoreAccountRef(
+    accountType: AccountType,
+    intuitApi: IntuitAPI,
+  ): Promise<string> {
+    switch (accountType) {
+      case AccountTypeObj.Income:
+        return this.manageIncomeAccountRef(intuitApi)
+      case AccountTypeObj.Expense:
+        return this.manageExpenseAccountRef(intuitApi)
+      case AccountTypeObj.Asset:
+        return this.manageAssetAccountRef(intuitApi)
+      default:
+        throw new APIError(
+          httpStatus.BAD_REQUEST,
+          `Cannot restore account ref for account type ${accountType}`,
+        )
+    }
+  }
+
   async checkAndUpdateAccountStatus(
     accountType: AccountType,
     realmId: string,
     intuitApi: IntuitAPI,
     accountId?: string,
   ) {
-    if (!accountId) return
+    if (!accountId) {
+      console.info(
+        `TokenService#checkAndUpdateAccountStatus. No accountId provided for ${accountType}. Restoring account ref...`,
+      )
+      const restoredRef = await this.restoreAccountRef(accountType, intuitApi)
+      await this.updateAccountMapping(accountType, realmId, restoredRef)
+      return restoredRef
+    }
 
     console.info(
       'TokenService#checkAndUpdateAccountStatus. Updating account status ...',
@@ -197,13 +274,14 @@ export class TokenService extends BaseService {
         'TokenService#checkAndUpdateAccountStatus. Account query response',
     })
 
-    // if no account found, remove mapping
+    // if no account found, restore account ref
     if (!account) {
       console.info(
-        `TokenService#checkAndUpdateAccountStatus. Account not found for Id ${accountId} in QuickBooks. Unmapping the account...`,
+        `TokenService#checkAndUpdateAccountStatus. Account not found for Id ${accountId} in QuickBooks. Restoring account ref...`,
       )
-      await this.removeAccountMapping(accountType, realmId)
-      return
+      const restoredRef = await this.restoreAccountRef(accountType, intuitApi)
+      await this.updateAccountMapping(accountType, realmId, restoredRef)
+      return restoredRef
     } else if (!account.Active) {
       console.info(
         `TokenService#checkAndUpdateAccountStatus. Account with Id ${accountId} is inactive. Making it active...`,

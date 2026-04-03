@@ -51,76 +51,13 @@ export class AuthService extends BaseService {
     return await Intuit.getInstance().authorizeUri(state)
   }
 
-  async manageIncomeAccountRef(intuitApi: IntuitAPI): Promise<string> {
-    const existingIncomeAccRef = await intuitApi.getSingleIncomeAccount()
-    if (existingIncomeAccRef) {
-      return existingIncomeAccRef?.Id
-    }
-
-    console.info(
-      `IntuitAPI#manageIncomeAccountRef | No existing income account found. Creating new one.`,
-    )
-
-    const payload = {
-      Name: 'Assembly SOP Income',
-      Classification: 'Revenue',
-      AccountType: 'Income',
-      AccountSubType: 'SalesOfProductIncome',
-      Active: true,
-    }
-    const incomeAccRef = await intuitApi.createAccount(payload)
-    return incomeAccRef.Id
-  }
-
-  async manageExpenseAccountRef(intuitApi: IntuitAPI): Promise<string> {
-    const accName = 'Assembly Processing Fees'
-    const existingAccount = await intuitApi.getAnAccount(accName)
-    if (existingAccount) {
-      return existingAccount?.Id
-    }
-
-    // Docs: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/account#the-account-object
-    const payload = {
-      Name: accName,
-      Classification: 'Expense',
-      AccountType: 'Expense', // Creating expense account.
-      AccountSubType: 'FinanceCosts',
-      Active: true,
-    }
-    const expenseAccRef = await intuitApi.createAccount(payload)
-    return expenseAccRef.Id
-  }
-
-  async manageAssetAccountRef(intuitApi: IntuitAPI): Promise<string> {
-    const accName = 'Assembly General Asset'
-    const existingAccount = await intuitApi.getAnAccount(accName)
-    if (existingAccount) {
-      return existingAccount?.Id
-    }
-
-    /**
-     * Need to create this account as the source of cash for the company. This account will be referenced while creating a purchase as Expense for absorbed fee.
-     * Doc: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/purchase#create-a-purchase
-     * */
-
-    // Docs: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/account#the-account-object
-    const payload = {
-      Name: accName,
-      Classification: 'Asset',
-      AccountType: 'Bank', // Create Bank account. Default account subtype is "CashOnHand".
-      Active: true,
-    }
-    const assetAccRef = await intuitApi.createAccount(payload)
-    return assetAccRef.Id
-  }
-
   async handleAccountReferences(
     intuitApi: IntuitAPI,
     payload: QBPortalConnectionCreateSchemaType,
     tokenService: TokenService,
   ) {
     // manage acc ref from intuit and store in qbPortalConnections table
-    let incomeAccountRef = await tokenService.checkAndUpdateAccountStatus(
+    const incomeAccountRef = await tokenService.checkAndUpdateAccountStatus(
         AccountTypeObj.Income,
         payload.intuitRealmId,
         intuitApi,
@@ -138,16 +75,6 @@ export class AuthService extends BaseService {
         intuitApi,
         payload.assetAccountRef,
       )
-    if (!incomeAccountRef) {
-      incomeAccountRef = await this.manageIncomeAccountRef(intuitApi)
-    }
-
-    if (!expenseAccountRef) {
-      expenseAccountRef = await this.manageExpenseAccountRef(intuitApi)
-    }
-    if (!assetAccountRef) {
-      assetAccountRef = await this.manageAssetAccountRef(intuitApi)
-    }
     return { ...payload, incomeAccountRef, expenseAccountRef, assetAccountRef }
   }
 
