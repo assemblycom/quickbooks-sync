@@ -351,7 +351,7 @@ export class CustomerService extends BaseService {
       )
       // Create a new customer in QB
       let customerPayload: QBCustomerCreatePayloadType = {
-        DisplayName: displayName,
+        DisplayName: replaceSpecialCharsForQB(displayName),
         CompanyName: companyInfo && replaceSpecialCharsForQB(companyInfo.name),
         PrimaryEmailAddr: {
           Address: recipientInfo.email,
