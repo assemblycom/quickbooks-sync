@@ -132,7 +132,7 @@ export class AuthService extends BaseService {
         incomeAccountRef: existingToken?.incomeAccountRef || '',
         expenseAccountRef: existingToken?.expenseAccountRef || '',
         assetAccountRef: existingToken?.assetAccountRef || '',
-        isSuspended: false, // default vaalue is false when created. Added this for the re-auth case.
+        isSuspended: false, // default value is false when created. Added this for the re-auth case.
       }
       const intuitApi = new IntuitAPI({
         accessToken: tokenInfo.access_token,

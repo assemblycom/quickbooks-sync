@@ -145,7 +145,7 @@ export class TokenService extends BaseService {
     realmId: string,
     accountRef: string,
   ) {
-    let payload = {}
+    let payload: QBPortalConnectionUpdateSchemaType = {}
     switch (accountType) {
       case AccountTypeObj.Income:
         payload = { incomeAccountRef: accountRef }
@@ -162,13 +162,18 @@ export class TokenService extends BaseService {
           `Cannot update account mapping for account type ${accountType}`,
         )
     }
-    await this.updateQBPortalConnection(
+    const updated = await this.updateQBPortalConnection(
       payload,
       and(
         eq(QBPortalConnection.portalId, this.user.workspaceId),
         eq(QBPortalConnection.intuitRealmId, realmId),
       ) as WhereClause,
     )
+    if (!updated) {
+      console.error(
+        `TokenService#updateAccountMapping | No row updated for portalId=${this.user.workspaceId} realmId=${realmId}. Account ref may be stale in DB.`,
+      )
+    }
   }
 
   private async getOrCreateIncomeAccountRef(
@@ -191,6 +196,12 @@ export class TokenService extends BaseService {
       Active: true,
     }
     const incomeAccRef = await intuitApi.createAccount(payload)
+    if (!incomeAccRef?.Id) {
+      throw new APIError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        'TokenService#getOrCreateIncomeAccountRef | Created account has no Id',
+      )
+    }
     return incomeAccRef.Id
   }
 
@@ -215,6 +226,12 @@ export class TokenService extends BaseService {
       Active: true,
     }
     const expenseAccRef = await intuitApi.createAccount(payload)
+    if (!expenseAccRef?.Id) {
+      throw new APIError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        'TokenService#getOrCreateExpenseAccountRef | Created account has no Id',
+      )
+    }
     return expenseAccRef.Id
   }
 
@@ -240,6 +257,12 @@ export class TokenService extends BaseService {
       Active: true,
     }
     const assetAccRef = await intuitApi.createAccount(payload)
+    if (!assetAccRef?.Id) {
+      throw new APIError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        'TokenService#getOrCreateAssetAccountRef | Created account has no Id',
+      )
+    }
     return assetAccRef.Id
   }
 
@@ -267,13 +290,16 @@ export class TokenService extends BaseService {
     realmId: string,
     intuitApi: IntuitAPI,
     accountId?: string,
-  ) {
+  ): Promise<string> {
     if (!accountId) {
       console.info(
         `TokenService#checkAndUpdateAccountStatus. No accountId provided for ${accountType}. Restoring account ref...`,
       )
       const restoredRef = await this.restoreAccountRef(accountType, intuitApi)
       await this.updateAccountMapping(accountType, realmId, restoredRef)
+      console.info(
+        `TokenService#checkAndUpdateAccountStatus. Restored ${accountType} account ref to ${restoredRef}.`,
+      )
       return restoredRef
     }
 
@@ -297,6 +323,9 @@ export class TokenService extends BaseService {
       )
       const restoredRef = await this.restoreAccountRef(accountType, intuitApi)
       await this.updateAccountMapping(accountType, realmId, restoredRef)
+      console.info(
+        `TokenService#checkAndUpdateAccountStatus. Restored ${accountType} account ref to ${restoredRef}.`,
+      )
       return restoredRef
     } else if (!account.Active) {
       console.info(
