@@ -214,6 +214,7 @@ export const CustomerQueryResponseSchema = z.object({
   Id: z.string(),
   SyncToken: z.string(),
   Active: z.boolean(),
+  CompanyName: z.string().optional(),
   PrimaryEmailAddr: z
     .object({
       Address: z.string(),

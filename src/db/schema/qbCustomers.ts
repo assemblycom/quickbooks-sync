@@ -20,14 +20,19 @@ export const QBCustomers = table(
     displayName: t.varchar('display_name', { length: 255 }),
     email: t.varchar('email', { length: 255 }),
     companyName: t.varchar('company_name', { length: 255 }),
+    customerType: t
+      .varchar('customer_type', { length: 20, enum: ['client', 'company'] })
+      .$type<'client' | 'company'>()
+      .default('client')
+      .notNull(),
     qbSyncToken: t.varchar('qb_sync_token', { length: 100 }).notNull(),
     qbCustomerId: t.varchar('qb_customer_id', { length: 100 }).notNull(),
     ...timestamps,
   },
   (table) => [
     t
-      .uniqueIndex('uq_qb_customers_client_company_id_active_idx')
-      .on(table.clientCompanyId)
+      .uniqueIndex('uq_qb_customers_client_company_id_type_active_idx')
+      .on(table.portalId, table.clientCompanyId, table.customerType)
       .where(isNull(table.deletedAt)),
   ],
 )
