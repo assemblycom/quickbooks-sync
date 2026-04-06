@@ -96,6 +96,7 @@ export class CustomerService extends BaseService {
 
   async getByClientCompanyId(
     clientCompanyId: string,
+    customerType: 'client' | 'company',
     returningFields?: (keyof typeof QBCustomers)[],
   ) {
     let columns = null
@@ -108,6 +109,7 @@ export class CustomerService extends BaseService {
         and(
           isNull(QBCustomers.deletedAt),
           eq(QBCustomers.clientCompanyId, clientCompanyId),
+          eq(QBCustomers.customerType, customerType),
           eq(QBCustomers.portalId, this.user.workspaceId),
         ),
       ...(columns && { columns }),
@@ -143,11 +145,11 @@ export class CustomerService extends BaseService {
     }
 
     const copilot = new CopilotAPI(this.user.token)
-    let client, company: CompanyResponse | undefined
+    let client
 
     // get client and company info from copilot
     if (clientId) client = await copilot.getClient(clientId)
-    if (companyId) company = await copilot.getCompany(companyId)
+    const company = await copilot.getCompany(companyId)
 
     let clientCompany: ClientCompanyType = {
       clientCompanyId:
@@ -231,6 +233,7 @@ export class CustomerService extends BaseService {
         displayName,
         email: client.email,
         companyId: client.companyId,
+        companyName: company?.name || '',
       },
       companyInfo: company,
     }
@@ -297,9 +300,13 @@ export class CustomerService extends BaseService {
 
   async ensureCustomerExistsAndSyncToken(
     clientCompanyId: string,
+    customerType: 'client' | 'company',
     intuitApi: IntuitAPI,
   ) {
-    const existingCustomer = await this.getExistingCustomer(clientCompanyId)
+    const existingCustomer = await this.getExistingCustomer(
+      clientCompanyId,
+      customerType,
+    )
 
     if (!existingCustomer) return
 
@@ -310,8 +317,11 @@ export class CustomerService extends BaseService {
     )
   }
 
-  async getExistingCustomer(clientCompanyId: string) {
-    return await this.getByClientCompanyId(clientCompanyId, [
+  async getExistingCustomer(
+    clientCompanyId: string,
+    customerType: 'client' | 'company',
+  ) {
+    return await this.getByClientCompanyId(clientCompanyId, customerType, [
       'id',
       'qbCustomerId',
       'qbSyncToken',
@@ -335,7 +345,7 @@ export class CustomerService extends BaseService {
     invoiceResource: InvoiceCreatedResponseType['data']
   }) {
     const displayName = recipientInfo.displayName
-    // 2.1. search client in qb using recipient's email or
+    // 2.1. search client in qb using recipient's email or display name
     let customer = recipientInfo.email
       ? await intuitApiService.getCustomerByEmail(recipientInfo.email)
       : await intuitApiService.getACustomer(
@@ -343,6 +353,17 @@ export class CustomerService extends BaseService {
           undefined,
           true,
         )
+
+    // 2.2. verify the matched customer has the same company name. This is needed because a single customer with same email can be part of multiple companies
+    const sanitizedCompanyName = recipientInfo.companyName
+      ? replaceSpecialCharsForQB(recipientInfo.companyName)
+      : undefined
+    if (
+      customer &&
+      (customer.CompanyName || undefined) !== sanitizedCompanyName
+    ) {
+      customer = undefined
+    }
 
     // 3. if not found, create a new client in the QB
     if (!customer) {
@@ -386,6 +407,7 @@ export class CustomerService extends BaseService {
       displayName: recipientInfo.displayName,
       email: recipientInfo.email,
       companyName: companyInfo?.name,
+      customerType: recipientInfo.type,
       qbSyncToken: customer.SyncToken,
       qbCustomerId: customer.Id,
     })

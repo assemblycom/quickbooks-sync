@@ -292,7 +292,7 @@ export default class IntuitAPI {
     CustomLogger.info({
       message: `IntuitAPI#getACustomer | Customer query start for realmId: ${this.tokens.intuitRealmId}. Name: ${displayName}, Id: ${id}`,
     })
-    const customerQuery = `SELECT Id, SyncToken, Active, PrimaryEmailAddr FROM Customer WHERE ${queryCondition}`
+    const customerQuery = `SELECT Id, SyncToken, Active, CompanyName, PrimaryEmailAddr FROM Customer WHERE ${queryCondition}`
     const qbCustomers = await this.customQuery(customerQuery)
 
     if (!qbCustomers) return null
@@ -317,7 +317,7 @@ export default class IntuitAPI {
       obj: { email },
       message: `IntuitAPI#getCustomerByEmail | Customer query start for realmId: ${this.tokens.intuitRealmId}. Email: ${email}`,
     })
-    const customerQuery = `SELECT Id, SyncToken, Active, PrimaryEmailAddr FROM Customer WHERE PrimaryEmailAddr = '${email}' AND Active in (true, false)`
+    const customerQuery = `SELECT Id, SyncToken, Active, CompanyName, PrimaryEmailAddr FROM Customer WHERE PrimaryEmailAddr = '${email}' AND Active in (true, false)`
     const qbCustomers = await this.customQuery(customerQuery)
 
     if (!qbCustomers) return

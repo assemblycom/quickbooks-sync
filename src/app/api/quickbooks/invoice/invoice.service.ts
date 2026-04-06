@@ -571,6 +571,7 @@ export class InvoiceService extends BaseService {
     const existingCustomer =
       await customerService.ensureCustomerExistsAndSyncToken(
         recipientInfo.clientCompanyId,
+        recipientInfo.type,
         intuitApiService,
       )
 

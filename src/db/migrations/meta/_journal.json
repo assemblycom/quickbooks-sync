@@ -92,6 +92,13 @@
       "when": 1773990604565,
       "tag": "20260320071004_add_unique_constraint_deleted_at_client_company_id",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1775465579546,
+      "tag": "20260406085259_add_customer_type_column_in_customers_table",
+      "breakpoints": true
     }
   ]
 }
