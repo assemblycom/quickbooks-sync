@@ -255,7 +255,7 @@ export class CustomerService extends BaseService {
       console.info(
         `CustomerService#updateCustomerSyncToken. Customer not found for Id ${qbCustomerId} in QuickBooks. Unmapping the customer...`,
       )
-      await this.removeCustomerMapping(mapId)
+      // await this.removeCustomerMapping(mapId)
       return
     } else if (!customer.Active) {
       console.info(
