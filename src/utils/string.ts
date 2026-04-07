@@ -28,6 +28,14 @@ export function replaceBeforeParens(
   }
 }
 
+/**
+ * Escapes single quotes for use in QBO query strings.
+ * QBO query language uses backslash to escape single quotes: \\'
+ */
+export function escapeForQBQuery(input: string) {
+  return input.replace(/'/g, "\\'")
+}
+
 export function replaceSpecialCharsForQB(input: string) {
   // list of allowed characters in QB.
   // Doc: https://quickbooks.intuit.com/learn-support/en-us/help-article/account-management/acceptable-characters-quickbooks-online/L3CiHlD9J_US_en_US
@@ -37,7 +45,7 @@ export function replaceSpecialCharsForQB(input: string) {
     '@',
     '&',
     '!',
-    // "'", even though included as allowed list in above docs, single quote is not allowed as this throws error.
+    "'",
     '*',
     '(',
     ')',
