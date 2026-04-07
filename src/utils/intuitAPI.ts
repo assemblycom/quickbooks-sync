@@ -28,6 +28,7 @@ import {
   QBItemsResponseSchema,
   SingleIdAndTokenResponseSchema,
 } from '@/type/dto/intuitAPI.dto'
+import { escapeForQBQuery } from '@/utils/string'
 import { RetryableError } from '@/utils/error'
 import CustomLogger from '@/utils/logger'
 import httpStatus from 'http-status'
@@ -282,7 +283,8 @@ export default class IntuitAPI {
       )
     }
 
-    const sanitizedDisplayName = displayName && displayName.trim()
+    const sanitizedDisplayName =
+      displayName && escapeForQBQuery(displayName.trim())
     let queryCondition = sanitizedDisplayName
       ? `DisplayName IN ('${sanitizedDisplayName}', '${this.getNameWithDeleted(sanitizedDisplayName)}')`
       : `Id = '${id}'`
@@ -317,7 +319,7 @@ export default class IntuitAPI {
       obj: { email },
       message: `IntuitAPI#getCustomerByEmail | Customer query start for realmId: ${this.tokens.intuitRealmId}. Email: ${email}`,
     })
-    const customerQuery = `SELECT Id, SyncToken, Active, CompanyName, PrimaryEmailAddr FROM Customer WHERE PrimaryEmailAddr = '${email}' AND Active in (true, false)`
+    const customerQuery = `SELECT Id, SyncToken, Active, CompanyName, PrimaryEmailAddr FROM Customer WHERE PrimaryEmailAddr = '${escapeForQBQuery(email)}' AND Active in (true, false)`
     const qbCustomers = await this.customQuery(customerQuery)
 
     if (!qbCustomers) return
@@ -361,7 +363,7 @@ export default class IntuitAPI {
       )
     }
 
-    const sanitizedName = name && name.trim()
+    const sanitizedName = name && escapeForQBQuery(name.trim())
     let queryCondition = sanitizedName
       ? `Name IN ('${sanitizedName}', '${this.getNameWithDeleted(sanitizedName)}')`
       : `Id = '${id}'`
@@ -578,7 +580,7 @@ export default class IntuitAPI {
       obj: { invoiceNumber },
       message: `IntuitAPI#getInvoice | invoice query start for realmId: ${this.tokens.intuitRealmId}. `,
     })
-    const query = `select Id, SyncToken, DocNumber from Invoice where DocNumber = '${invoiceNumber}' maxresults 1`
+    const query = `select Id, SyncToken, DocNumber from Invoice where DocNumber = '${escapeForQBQuery(invoiceNumber)}' maxresults 1`
     const invoice = await this.customQuery(query)
 
     if (!invoice)
@@ -724,7 +726,8 @@ export default class IntuitAPI {
       message: 'IntuitAPI#getAnAccount | Account query start for realmId: ',
     })
 
-    const sanitizedAccountName = accountName && accountName.trim()
+    const sanitizedAccountName =
+      accountName && escapeForQBQuery(accountName.trim())
     let queryCondition = sanitizedAccountName
       ? `Name IN ('${sanitizedAccountName}', '${this.getNameWithDeleted(sanitizedAccountName)}')`
       : `Id = '${id}'`
