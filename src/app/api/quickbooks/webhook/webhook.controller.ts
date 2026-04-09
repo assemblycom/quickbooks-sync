@@ -7,21 +7,25 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 300 // 5 minutes
 
 export async function captureWebhookEvent(req: NextRequest) {
-  console.info('\n\n####### Webhook triggered #######')
-  const user = await authenticate(req)
-  Sentry.setTag('portalId', user.workspaceId)
-  Sentry.setTag('workspaceId', user.workspaceId)
+  return Sentry.withScope(async (scope) => {
+    console.info('\n\n####### Webhook triggered #######')
+    const user = await authenticate(req)
+    scope.setTag('portalId', user.workspaceId)
+    scope.setTag('workspaceId', user.workspaceId)
 
-  const authService = new AuthService(user)
-  const payload = await req.json()
+    const authService = new AuthService(user)
+    const payload = await req.json()
 
-  const qbTokenInfo = await authService.getQBPortalConnection(user.workspaceId)
-  user.qbConnection = {
-    serviceItemRef: qbTokenInfo.serviceItemRef,
-    clientFeeRef: qbTokenInfo.clientFeeRef,
-  }
-  const webhookService = new WebhookService(user)
-  await webhookService.handleWebhookEvent(payload, qbTokenInfo)
+    const qbTokenInfo = await authService.getQBPortalConnection(
+      user.workspaceId,
+    )
+    user.qbConnection = {
+      serviceItemRef: qbTokenInfo.serviceItemRef,
+      clientFeeRef: qbTokenInfo.clientFeeRef,
+    }
+    const webhookService = new WebhookService(user)
+    await webhookService.handleWebhookEvent(payload, qbTokenInfo)
 
-  return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true })
+  })
 }

@@ -433,25 +433,30 @@ export class SyncService extends BaseService {
 
       // Report to Sentry after the final attempt so breadcrumbs from processing are included
       if (resyncAttemtps.isLastAttempt) {
-        captureMessage(
-          `SyncService#intiateSync | Records exceeded max retry count. Portal Id: ${this.user.workspaceId}.`,
-          {
-            tags: {
-              key: 'exceedMaxAttempts',
-              portalId: this.user.workspaceId,
-              entityType: log.entityType,
-              eventType: log.eventType,
-              errorCategory: log.category,
-            },
-            extra: {
-              LogId: log.id,
-              invoiceNumber: log.invoiceNumber,
-              errorMessage: log.errorMessage,
-              attempt: MAX_ATTEMPTS,
-            },
-            level: 'error',
-          },
+        const currentLog = await this.syncLogService.getOne(
+          eq(QBSyncLog.id, log.id),
         )
+        if (currentLog?.status === LogStatus.FAILED) {
+          captureMessage(
+            `SyncService#intiateSync | Records exceeded max retry count. Portal Id: ${this.user.workspaceId}.`,
+            {
+              tags: {
+                key: 'exceedMaxAttempts',
+                portalId: this.user.workspaceId,
+                entityType: log.entityType,
+                eventType: log.eventType,
+                errorCategory: currentLog.category,
+              },
+              extra: {
+                LogId: log.id,
+                invoiceNumber: log.invoiceNumber,
+                errorMessage: currentLog.errorMessage,
+                attempt: MAX_ATTEMPTS,
+              },
+              level: 'error',
+            },
+          )
+        }
       }
     }
   }

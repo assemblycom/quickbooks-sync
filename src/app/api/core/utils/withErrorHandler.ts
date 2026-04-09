@@ -99,7 +99,7 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
 
         Sentry.withScope((scope) => {
           scope.setTag('errorCategory', category)
-          if (errorWithCode.source) {
+          if (errorWithCode.source && errorWithCode.source !== 'unknown') {
             scope.setTag('errorSource', errorWithCode.source)
           }
           Sentry.captureException(error)
