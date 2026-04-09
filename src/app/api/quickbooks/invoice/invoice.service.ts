@@ -581,7 +581,7 @@ export class InvoiceService extends BaseService {
       )
 
     addSyncBreadcrumb('Customer resolved', {
-      existingMapping: !!existingCustomer ? 'true' : 'false',
+      existingMapping: !!existingCustomer,
     })
 
     let customer,

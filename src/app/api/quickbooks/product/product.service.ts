@@ -536,7 +536,7 @@ export class ProductService extends BaseService {
       ).length
 
       addSyncBreadcrumb('Product mapping check', {
-        alreadyMapped: productWithPriceCount ? 'true' : 'false',
+        alreadyMapped: !!productWithPriceCount,
       })
       if (productWithPriceCount && productWithPriceCount > 0) {
         console.info('Product already mapped with price')

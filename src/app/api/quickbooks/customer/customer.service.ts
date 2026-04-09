@@ -367,7 +367,7 @@ export class CustomerService extends BaseService {
     }
 
     addSyncBreadcrumb('Customer search in QBO', {
-      found: !!customer ? 'true' : 'false',
+      found: !!customer,
     })
 
     // 3. if not found, create a new client in the QB
