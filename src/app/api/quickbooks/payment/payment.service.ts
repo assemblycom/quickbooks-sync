@@ -33,6 +33,7 @@ import {
   getDeletedAtForAuthAccountCategoryLog,
   getCategory,
 } from '@/utils/synclog'
+import { addSyncBreadcrumb } from '@/utils/sentry'
 import dayjs from 'dayjs'
 import { z } from 'zod'
 import httpStatus from 'http-status'
@@ -95,6 +96,9 @@ export class PaymentService extends BaseService {
     },
   ): Promise<boolean> {
     const parsedQbPayload = QBPaymentCreatePayloadSchema.parse(qbPaymentPayload)
+    addSyncBreadcrumb('Creating payment in QBO', {
+      invoiceNumber: invoiceInfo.invoiceNumber,
+    })
     // to save error sync log when payment creation fails in QB
     try {
       const qbPaymentRes = await intuitApi.createPayment(parsedQbPayload)
@@ -152,6 +156,7 @@ export class PaymentService extends BaseService {
   ) {
     const parsedPayload = QBPurchaseCreatePayloadSchema.parse(payload)
 
+    addSyncBreadcrumb('Creating expense for absorbed fees')
     console.info(
       'PaymentService#webhookPaymentSucceeded | Creating expense for absorbed fees',
     )
@@ -192,6 +197,10 @@ export class PaymentService extends BaseService {
     invoice: InvoiceResponse | undefined,
   ): Promise<void> {
     const paymentResource = parsedPaymentSucceedResource.data
+    addSyncBreadcrumb('Payment succeeded flow started', {
+      paymentId: paymentResource.id,
+      invoiceId: paymentResource.invoiceId,
+    })
 
     if (!paymentResource.feeAmount)
       throw new APIError(httpStatus.BAD_REQUEST, 'Fee amount is not found')

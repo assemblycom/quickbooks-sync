@@ -10,6 +10,7 @@ import { getAllActivePortalConnections } from '@/db/service/token.service'
 import { CopilotAPI } from '@/utils/copilotAPI'
 import { encodePayload } from '@/utils/crypto'
 import CustomLogger from '@/utils/logger'
+import * as Sentry from '@sentry/nextjs'
 import dayjs from 'dayjs'
 import { and, eq, lt } from 'drizzle-orm'
 
@@ -18,29 +19,34 @@ export default class CronService {
     workspaceId: string,
     qbConnectionTokens: QBConnectionProperties,
   ) {
-    const payload = {
-      workspaceId,
-    }
-    const token = encodePayload(copilotAPIKey, payload)
+    return await Sentry.withScope(async (scope) => {
+      scope.setTag('portalId', workspaceId)
+      scope.setTag('workspaceId', workspaceId)
 
-    // check if token is valid or not
-    const copilot = new CopilotAPI(token)
-    const tokenPayload = await copilot.getTokenPayload()
-    CustomLogger.info({
-      obj: { copilotApiCronToken: token, tokenPayload },
-      message:
-        'CronService#_scheduleSinglePortal | Copilot API token and payload',
+      const payload = {
+        workspaceId,
+      }
+      const token = encodePayload(copilotAPIKey, payload)
+
+      // check if token is valid or not
+      const copilot = new CopilotAPI(token)
+      const tokenPayload = await copilot.getTokenPayload()
+      CustomLogger.info({
+        obj: { copilotApiCronToken: token, tokenPayload },
+        message:
+          'CronService#_scheduleSinglePortal | Copilot API token and payload',
+      })
+      if (!tokenPayload) throw new APIError(500, 'Encoded token is not valid') // this should trigger p-retry and re-run the function
+
+      const user = new User(token, tokenPayload)
+      user.qbConnection = qbConnectionTokens
+      const syncService = new SyncService(user)
+
+      // TODO: update this on QB tech debt milestone
+      // const { suspended } = await syncService.checkAndSuspendAccount()
+      // if (suspended) return
+      return await syncService.syncFailedRecords()
     })
-    if (!tokenPayload) throw new APIError(500, 'Encoded token is not valid') // this should trigger p-retry and re-run the function
-
-    const user = new User(token, tokenPayload)
-    user.qbConnection = qbConnectionTokens
-    const syncService = new SyncService(user)
-
-    // TODO: update this on QB tech debt milestone
-    // const { suspended } = await syncService.checkAndSuspendAccount()
-    // if (suspended) return
-    return await syncService.syncFailedRecords()
   }
 
   async rerunFailedSync() {

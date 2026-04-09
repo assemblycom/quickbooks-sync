@@ -4,6 +4,7 @@ import {
   StatusableError,
 } from '@/type/CopilotApiError'
 import APIError from '@/app/api/core/exceptions/api'
+import { FailedRecordCategoryType } from '@/app/api/core/types/log'
 import httpStatus from 'http-status'
 import { NextRequest, NextResponse } from 'next/server'
 import { ZodError, ZodFormattedError } from 'zod'
@@ -12,7 +13,8 @@ import {
   isIntuitOAuthError,
 } from '@/app/api/core/exceptions/custom'
 import * as Sentry from '@sentry/nextjs'
-import { RetryableError } from '@/utils/error'
+import { getMessageAndCodeFromError, RetryableError } from '@/utils/error'
+import { getCategory } from '@/utils/synclog'
 
 type RequestHandler = (req: NextRequest, params: any) => Promise<NextResponse>
 
@@ -80,14 +82,28 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
         status = error.response.status
       }
 
-      // if error is from Copilot or Intuit API (API error), then send the error message to Sentry
-      if (
+      // Send categorized errors to Sentry with context tags
+      if (error instanceof ZodError) {
+        Sentry.withScope((scope) => {
+          scope.setTag('errorCategory', FailedRecordCategoryType.VALIDATION)
+          Sentry.captureException(error)
+        })
+      } else if (
         error instanceof APIError ||
         error instanceof CopilotApiError ||
         isAxiosError(error) ||
         isIntuitOAuthError(error)
       ) {
-        Sentry.captureException(error)
+        const errorWithCode = getMessageAndCodeFromError(error)
+        const category = getCategory(errorWithCode)
+
+        Sentry.withScope((scope) => {
+          scope.setTag('errorCategory', category)
+          if (errorWithCode.source) {
+            scope.setTag('errorSource', errorWithCode.source)
+          }
+          Sentry.captureException(error)
+        })
       }
 
       return NextResponse.json({ error: message, errors }, { status })

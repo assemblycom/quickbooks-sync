@@ -30,5 +30,9 @@ export enum EventType {
 export enum FailedRecordCategoryType {
   AUTH = 'auth',
   ACCOUNT = 'account',
+  RATE_LIMIT = 'rate_limit',
+  VALIDATION = 'validation',
+  QB_API_ERROR = 'qb_api_error',
+  MAPPING_NOT_FOUND = 'mapping_not_found',
   OTHERS = 'others',
 }
