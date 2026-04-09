@@ -430,6 +430,29 @@ export class SyncService extends BaseService {
           })
           break
       }
+
+      // Report to Sentry after the final attempt so breadcrumbs from processing are included
+      if (resyncAttemtps.isLastAttempt) {
+        captureMessage(
+          `SyncService#intiateSync | Records exceeded max retry count. Portal Id: ${this.user.workspaceId}.`,
+          {
+            tags: {
+              key: 'exceedMaxAttempts',
+              portalId: this.user.workspaceId,
+              entityType: log.entityType,
+              eventType: log.eventType,
+              errorCategory: log.category,
+            },
+            extra: {
+              LogId: log.id,
+              invoiceNumber: log.invoiceNumber,
+              errorMessage: log.errorMessage,
+              attempt: MAX_ATTEMPTS,
+            },
+            level: 'error',
+          },
+        )
+      }
     }
   }
 
@@ -541,7 +564,7 @@ export class SyncService extends BaseService {
         message: `SyncService#checkAndUpdateAttempt | Reached max attempts. Not syncing the record with assembly id: ${log.copilotId}`,
         obj: { workspaceId: this.user.workspaceId },
       })
-      return { maxAttempts: true }
+      return { maxAttempts: true, isLastAttempt: false }
     }
 
     const attempt = log.attempt + 1
@@ -552,35 +575,12 @@ export class SyncService extends BaseService {
       eq(QBSyncLog.id, log.id),
     )
 
-    // report to sentry if any records has exceeded max retry count
-    if (attempt == MAX_ATTEMPTS) {
-      captureMessage(
-        `SyncService#checkAndUpdateAttempt | Records exceeded max retry count. Portal Id: ${this.user.workspaceId}.`,
-        {
-          tags: {
-            key: 'exceedMaxAttempts',
-            portalId: this.user.workspaceId,
-            entityType: log.entityType,
-            eventType: log.eventType,
-            errorCategory: log.category,
-          },
-          extra: {
-            LogId: log.id,
-            invoiceNumber: log.invoiceNumber,
-            errorMessage: log.errorMessage,
-            attempt,
-          },
-          level: 'error',
-        },
-      )
-    }
-
     CustomLogger.info({
       message: `SyncService#checkAndUpdateAttempt | Attempt: ${attempt}`,
       obj: { workspaceId: this.user.workspaceId },
     })
 
-    return { maxAttempts: false }
+    return { maxAttempts: false, isLastAttempt: attempt === MAX_ATTEMPTS }
   }
 
   private async updateFailedSyncLog(
