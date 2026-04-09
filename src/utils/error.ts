@@ -8,6 +8,7 @@ import { CopilotApiError, MessagableError } from '@/type/CopilotApiError'
 import { refreshTokenExpireMessage } from '@/utils/auth'
 import { IntuitAPIErrorMessage } from '@/utils/intuitAPI'
 import httpStatus from 'http-status'
+import { ZodError } from 'zod'
 
 export type IntuitErrorType = {
   Message: string
@@ -19,6 +20,8 @@ export type IntuitErrorType = {
 export type ErrorMessageAndCode = {
   message: string
   code: number
+  source?: 'intuit' | 'copilot' | 'unknown'
+  isValidationError?: boolean
 }
 
 export const getMessageAndCodeFromError = (
@@ -30,26 +33,46 @@ export const getMessageAndCodeFromError = (
   const code: number = httpStatus.INTERNAL_SERVER_ERROR
 
   // Build a proper response based on the type of Error encountered
-  if (error instanceof CopilotApiError) {
-    return { message: error.body.message || message, code: error.status }
+  if (error instanceof ZodError) {
+    return {
+      message: error.message,
+      code: httpStatus.UNPROCESSABLE_ENTITY,
+      source: 'unknown',
+      isValidationError: true,
+    }
+  } else if (error instanceof CopilotApiError) {
+    return {
+      message: error.body.message || message,
+      code: error.status,
+      source: 'copilot',
+    }
   } else if (error instanceof APIError) {
     let errorMessage = error.message || message
-    if (error.message.includes(IntuitAPIErrorMessage)) {
+    const isIntuitError = error.message.includes(IntuitAPIErrorMessage)
+    if (isIntuitError) {
       errorMessage = (error.errors?.[0] as IntuitErrorType).Detail
     }
-    return { message: errorMessage, code: error.status }
+    return {
+      message: errorMessage,
+      code: error.status,
+      source: isIntuitError ? 'intuit' : 'unknown',
+    }
   } else if (isIntuitOAuthError(error)) {
     const message =
       error.error === OAuthErrorCodes.INVALID_GRANT
         ? refreshTokenExpireMessage
         : error.error
-    return { message, code: httpStatus.BAD_REQUEST }
+    return { message, code: httpStatus.BAD_REQUEST, source: 'intuit' }
   } else if (error instanceof Error && error.message) {
-    return { message: error.message, code }
+    return { message: error.message, code, source: 'unknown' }
   } else if (isAxiosError(error)) {
-    return { message: error.response.data.error, code: error.response.status }
+    return {
+      message: error.response.data.error,
+      code: error.response.status,
+      source: 'unknown',
+    }
   }
-  return { message, code }
+  return { message, code, source: 'unknown' }
 }
 
 export class RetryableError extends Error {

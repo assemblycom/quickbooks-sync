@@ -558,10 +558,17 @@ export class SyncService extends BaseService {
         `SyncService#checkAndUpdateAttempt | Records exceeded max retry count. Portal Id: ${this.user.workspaceId}.`,
         {
           tags: {
-            key: 'exceedMaxAttempts', // can be used to search like "key:exceedMaxAttempts"
+            key: 'exceedMaxAttempts',
+            portalId: this.user.workspaceId,
+            entityType: log.entityType,
+            eventType: log.eventType,
+            errorCategory: log.category,
           },
           extra: {
-            LogId: log.id, // shown in "Additional Data" section in Sentry
+            LogId: log.id,
+            invoiceNumber: log.invoiceNumber,
+            errorMessage: log.errorMessage,
+            attempt,
           },
           level: 'error',
         },

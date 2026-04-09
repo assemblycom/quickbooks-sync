@@ -29,6 +29,7 @@ import {
   getDeletedAtForAuthAccountCategoryLog,
   getCategory,
 } from '@/utils/synclog'
+import { addSyncBreadcrumb } from '@/utils/sentry'
 import { and, eq } from 'drizzle-orm'
 import httpStatus from 'http-status'
 
@@ -46,6 +47,10 @@ export class WebhookService extends BaseService {
     }
 
     const payload = parsedBody.data
+    addSyncBreadcrumb('Webhook event received', {
+      eventType: payload.eventType,
+      portalId: this.user.workspaceId,
+    })
     CustomLogger.info({
       obj: { payload },
       message: 'WebhookService#handleWebhookEvent | Webhook payload received',

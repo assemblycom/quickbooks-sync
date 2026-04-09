@@ -47,6 +47,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { convert } from 'html-to-text'
 import httpStatus from 'http-status'
 import { z } from 'zod'
+import { addSyncBreadcrumb } from '@/utils/sentry'
 import { replaceSpecialCharsForQB } from '@/utils/string'
 import { AccountTypeObj } from '@/constant/qbConnection'
 
@@ -538,6 +539,10 @@ export class InvoiceService extends BaseService {
     qbTokenInfo: IntuitAPITokensType,
   ): Promise<void> {
     const invoiceResource = payload.data
+    addSyncBreadcrumb('Invoice creation started', {
+      invoiceNumber: invoiceResource.number,
+      portalId: this.user.workspaceId,
+    })
 
     // Check if the invoice with ID already exists in the db. This check is done in this function as it is also called from re-sync failed function
     const existingInvoice = await this.getInvoiceByNumber(
@@ -574,6 +579,10 @@ export class InvoiceService extends BaseService {
         recipientInfo.type,
         intuitApiService,
       )
+
+    addSyncBreadcrumb('Customer resolved', {
+      existingMapping: !!existingCustomer ? 'true' : 'false',
+    })
 
     let customer,
       existingCustomerMapId = existingCustomer?.id
@@ -731,6 +740,9 @@ export class InvoiceService extends BaseService {
     }
 
     // 6. create invoice in QB
+    addSyncBreadcrumb('Creating invoice in QBO', {
+      invoiceNumber: invoiceResource.number,
+    })
     const invoiceRes = await intuitApiService.createInvoice(qbInvoicePayload)
 
     const invoicePayload = {
@@ -804,6 +816,9 @@ export class InvoiceService extends BaseService {
     payload: InvoiceResponseType,
     qbTokenInfo: IntuitAPITokensType,
   ): Promise<void> {
+    addSyncBreadcrumb('Invoice paid flow started', {
+      invoiceNumber: payload.data.number,
+    })
     // 1. check if the status of invoice is already paid in sync table
     const invoiceSync = await this.getInvoiceByNumber(payload.data.number, [
       'id',
@@ -926,6 +941,9 @@ export class InvoiceService extends BaseService {
     payload: InvoiceVoidedResponse,
     qbTokenInfo: IntuitAPITokensType,
   ): Promise<void> {
+    addSyncBreadcrumb('Invoice voided flow started', {
+      invoiceNumber: payload.number,
+    })
     // 1. check if the status of invoice is already paid in sync table
     const invoiceSync = await this.getInvoiceByNumber(payload.number, [
       'id',
@@ -1013,6 +1031,9 @@ export class InvoiceService extends BaseService {
     payload: InvoiceDeletedResponse,
     qbTokenInfo: IntuitAPITokensType,
   ): Promise<void> {
+    addSyncBreadcrumb('Invoice deleted flow started', {
+      invoiceNumber: payload.number,
+    })
     const syncedInvoice = await this.getInvoiceByNumber(payload.number, [
       'id',
       'qbInvoiceId',

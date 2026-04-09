@@ -15,6 +15,7 @@ import { QBCustomerCreatePayloadType } from '@/type/dto/intuitAPI.dto'
 import { InvoiceCreatedResponseType } from '@/type/dto/webhook.dto'
 import { CopilotAPI } from '@/utils/copilotAPI'
 import IntuitAPI from '@/utils/intuitAPI'
+import { addSyncBreadcrumb } from '@/utils/sentry'
 import { replaceSpecialCharsForQB } from '@/utils/string'
 import { and, eq, isNull } from 'drizzle-orm'
 import httpStatus from 'http-status'
@@ -365,6 +366,10 @@ export class CustomerService extends BaseService {
       customer = undefined
     }
 
+    addSyncBreadcrumb('Customer search in QBO', {
+      found: !!customer ? 'true' : 'false',
+    })
+
     // 3. if not found, create a new client in the QB
     if (!customer) {
       console.info(
@@ -390,6 +395,9 @@ export class CustomerService extends BaseService {
       const customerRes = await intuitApiService.createCustomer(customerPayload)
       customer = customerRes
 
+      addSyncBreadcrumb('Customer created in QBO', {
+        qbCustomerId: customer.Id,
+      })
       console.info(
         `InvoiceService#WebhookInvoiceCreated | Customer created in QB with ID: ${customer.Id}.`,
       )

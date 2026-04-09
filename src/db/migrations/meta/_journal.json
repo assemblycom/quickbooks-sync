@@ -99,6 +99,13 @@
       "when": 1775465579546,
       "tag": "20260406085259_add_customer_type_column_in_customers_table",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1775955600000,
+      "tag": "20260409070000_add_new_failed_record_categories",
+      "breakpoints": true
     }
   ]
 }

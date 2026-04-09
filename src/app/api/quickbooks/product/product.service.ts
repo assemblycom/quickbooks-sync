@@ -33,6 +33,7 @@ import httpStatus from 'http-status'
 import { QBSyncLog, QBSyncLogWithEntityType } from '@/db/schema/qbSyncLogs'
 import User from '@/app/api/core/models/User.model'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
+import { addSyncBreadcrumb } from '@/utils/sentry'
 import { replaceBeforeParens, replaceSpecialCharsForQB } from '@/utils/string'
 import { AccountTypeObj } from '@/constant/qbConnection'
 import { TokenService } from '@/app/api/quickbooks/token/token.service'
@@ -365,6 +366,9 @@ export class ProductService extends BaseService {
     qbTokenInfo: IntuitAPITokensType,
   ): Promise<void> {
     const productResource = resource.data
+    addSyncBreadcrumb('Product updated flow started', {
+      productId: productResource.id,
+    })
 
     // 01. get all the mapped product ids with qb id
     const mappedConditions =
@@ -506,6 +510,10 @@ export class ProductService extends BaseService {
     qbTokenInfo: IntuitAPITokensType,
   ): Promise<void> {
     const priceResource = resource.data
+    addSyncBreadcrumb('Price created flow started', {
+      priceId: priceResource.id,
+      productId: priceResource.productId,
+    })
     const intuitApi = new IntuitAPI(qbTokenInfo)
 
     await this.db.transaction(async (tx) => {
@@ -527,6 +535,9 @@ export class ProductService extends BaseService {
         (product) => product.priceId === priceResource.id,
       ).length
 
+      addSyncBreadcrumb('Product mapping check', {
+        alreadyMapped: productWithPriceCount ? 'true' : 'false',
+      })
       if (productWithPriceCount && productWithPriceCount > 0) {
         console.info('Product already mapped with price')
         return
