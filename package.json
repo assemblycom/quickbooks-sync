@@ -20,7 +20,10 @@
     "patch-assembly-node-sdk": "cp ./lib-patches/assembly-js-node-sdk.js ./node_modules/@assembly-js/node-sdk/dist/api/init.js",
     "cmd:backfill-product-info": "tsx src/cmd/backfillProductInfo/index.ts",
     "cmd:sync-missed-invoices": "tsx src/cmd/syncMissedInvoices/index.ts",
-    "cmd:sync-missed-products": "tsx src/cmd/syncMissedProducts/index.ts"
+    "cmd:sync-missed-products": "tsx src/cmd/syncMissedProducts/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@sentry/nextjs": "^9.13.0",
@@ -66,6 +69,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-linkify": "^1",
+    "@vitest/coverage-v8": "4.1.3",
     "autoprefixer": "^10.4.0",
     "dotenv": "^16.4.5",
     "drizzle-kit": "^0.31.0",
@@ -79,7 +83,8 @@
     "prettier": "^3.5.3",
     "tailwindcss": "^4.1.5",
     "tsx": "^4.21.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.3"
   },
   "packageManager": "yarn@4.9.1",
   "resolutions": {
