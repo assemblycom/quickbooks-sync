@@ -1,3 +1,4 @@
+import { IntuitOAuthError } from '@/app/api/core/exceptions/custom'
 import { withRetry } from '@/app/api/core/utils/withRetry'
 import {
   intuitClientId,
@@ -53,7 +54,11 @@ export default class Intuit {
   }
 
   async _refreshAccessToken(refreshToken: string) {
-    return await this.intuitQB.refreshUsingToken(refreshToken)
+    try {
+      return await this.intuitQB.refreshUsingToken(refreshToken)
+    } catch (error: unknown) {
+      throw IntuitOAuthError.fromRaw(error) ?? error
+    }
   }
 
   async getRefreshedQBToken(

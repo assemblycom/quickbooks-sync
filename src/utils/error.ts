@@ -38,14 +38,14 @@ export const getMessageAndCodeFromError = (
       errorMessage = (error.errors?.[0] as IntuitErrorType).Detail
     }
     return { message: errorMessage, code: error.status }
-  } else if (error instanceof Error && error.message) {
-    return { message: error.message, code }
   } else if (isIntuitOAuthError(error)) {
     const message =
       error.error === OAuthErrorCodes.INVALID_GRANT
         ? refreshTokenExpireMessage
         : error.error
     return { message, code: httpStatus.BAD_REQUEST }
+  } else if (error instanceof Error && error.message) {
+    return { message: error.message, code }
   } else if (isAxiosError(error)) {
     return { message: error.response.data.error, code: error.response.status }
   }

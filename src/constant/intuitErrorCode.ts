@@ -6,4 +6,4 @@ export const AccountErrorCodes = [
 
 export const OAuthErrorCodes = {
   INVALID_GRANT: 'invalid_grant',
-}
+} as const

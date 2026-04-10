@@ -70,11 +70,11 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
       } else if (error instanceof RetryableError) {
         status = error.status
         message = error.message || message
-      } else if (error instanceof Error && error.message) {
-        message = error.message
       } else if (isIntuitOAuthError(error)) {
         message = error.error
         status = httpStatus.BAD_REQUEST
+      } else if (error instanceof Error && error.message) {
+        message = error.message
       } else if (isAxiosError(error)) {
         message = error.response.data.error
         status = error.response.status
