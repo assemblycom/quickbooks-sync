@@ -3,3 +3,7 @@ export const AccountErrorCodes = [
   6190, // account suspended
   6000, // business validation error
 ]
+
+export const OAuthErrorCodes = {
+  INVALID_GRANT: 'invalid_grant',
+}

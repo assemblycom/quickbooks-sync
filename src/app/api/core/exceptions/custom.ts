@@ -14,3 +14,22 @@ export function isAxiosError(
     'status' in (error as any).response
   )
 }
+
+/**
+ * Intuit-Oauth has its own error format response.
+ * Format: { error: string, error_description: string, intuit_tid: string }
+ */
+export function isIntuitOAuthError(
+  error: unknown,
+): error is { error: string; error_description: string; intuit_tid: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'error' in error &&
+    typeof (error as any).error === 'string' &&
+    'error_description' in error &&
+    typeof (error as any).error_description === 'string' &&
+    'intuit_tid' in error &&
+    typeof (error as any).intuit_tid === 'string'
+  )
+}

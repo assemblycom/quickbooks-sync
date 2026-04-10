@@ -1,6 +1,11 @@
 import APIError from '@/app/api/core/exceptions/api'
-import { isAxiosError } from '@/app/api/core/exceptions/custom'
+import {
+  isAxiosError,
+  isIntuitOAuthError,
+} from '@/app/api/core/exceptions/custom'
+import { OAuthErrorCodes } from '@/constant/intuitErrorCode'
 import { CopilotApiError, MessagableError } from '@/type/CopilotApiError'
+import { refreshTokenExpireMessage } from '@/utils/auth'
 import { IntuitAPIErrorMessage } from '@/utils/intuitAPI'
 import httpStatus from 'http-status'
 
@@ -35,6 +40,12 @@ export const getMessageAndCodeFromError = (
     return { message: errorMessage, code: error.status }
   } else if (error instanceof Error && error.message) {
     return { message: error.message, code }
+  } else if (isIntuitOAuthError(error)) {
+    const message =
+      error.error === OAuthErrorCodes.INVALID_GRANT
+        ? refreshTokenExpireMessage
+        : error.error
+    return { message, code: httpStatus.BAD_REQUEST }
   } else if (isAxiosError(error)) {
     return { message: error.response.data.error, code: error.response.status }
   }

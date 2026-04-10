@@ -7,7 +7,10 @@ import APIError from '@/app/api/core/exceptions/api'
 import httpStatus from 'http-status'
 import { NextRequest, NextResponse } from 'next/server'
 import { ZodError, ZodFormattedError } from 'zod'
-import { isAxiosError } from '@/app/api/core/exceptions/custom'
+import {
+  isAxiosError,
+  isIntuitOAuthError,
+} from '@/app/api/core/exceptions/custom'
 import * as Sentry from '@sentry/nextjs'
 import { RetryableError } from '@/utils/error'
 
@@ -69,6 +72,9 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
         message = error.message || message
       } else if (error instanceof Error && error.message) {
         message = error.message
+      } else if (isIntuitOAuthError(error)) {
+        message = error.error
+        status = httpStatus.BAD_REQUEST
       } else if (isAxiosError(error)) {
         message = error.response.data.error
         status = error.response.status
@@ -78,7 +84,8 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
       if (
         error instanceof APIError ||
         error instanceof CopilotApiError ||
-        isAxiosError(error)
+        isAxiosError(error) ||
+        isIntuitOAuthError(error)
       ) {
         Sentry.captureException(error)
       }

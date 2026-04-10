@@ -1,5 +1,5 @@
 import APIError from '@/app/api/core/exceptions/api'
-import { isAxiosError } from '@/app/api/core/exceptions/custom'
+import { isIntuitOAuthError } from '@/app/api/core/exceptions/custom'
 import { BaseService } from '@/app/api/core/services/base.service'
 import { AuthStatus } from '@/app/api/core/types/auth'
 import { NotificationActions } from '@/app/api/core/types/notification'
@@ -9,6 +9,7 @@ import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
 import { SyncService } from '@/app/api/quickbooks/sync/sync.service'
 import { TokenService } from '@/app/api/quickbooks/token/token.service'
 import { intuitRedirectUri } from '@/config'
+import { OAuthErrorCodes } from '@/constant/intuitErrorCode'
 import { AccountTypeObj } from '@/constant/qbConnection'
 import { ConnectionStatus } from '@/db/schema/qbConnectionLogs'
 import {
@@ -328,14 +329,16 @@ export class AuthService extends BaseService {
           )
         }
       } catch (error: unknown) {
-        if (isAxiosError(error)) {
+        console.error('AuthService#handleConnectionError | Error =', error)
+
+        if (isIntuitOAuthError(error)) {
           // Special handling for refresh token expired
           console.error(
             `Refresh token is invalid or expired, reauthorization needed for portalId: ${portalId}.`,
-            { message: error.response.data?.error },
+            { message: error.error_description },
           )
 
-          if (error.response.data?.error === 'invalid_grant') {
+          if (error.error === OAuthErrorCodes.INVALID_GRANT) {
             // indicates that the refresh token is invalid
             // turn off the sync and send notifications to IU (product and email)
             await tokenService.turnOffSync(intuitRealmId)
