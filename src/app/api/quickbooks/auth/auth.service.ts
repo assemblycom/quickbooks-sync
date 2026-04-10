@@ -31,6 +31,7 @@ import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
 import dayjs from 'dayjs'
 import { and, eq, SQL } from 'drizzle-orm'
 import httpStatus from 'http-status'
+import { afterIfAvailable } from '@/app/api/core/utils/afterIfAvailable'
 import { after } from 'next/server'
 
 export class AuthService extends BaseService {
@@ -344,7 +345,11 @@ export class AuthService extends BaseService {
             await tokenService.turnOffSync(intuitRealmId)
 
             // send notification to IU
-            after(async () => {
+            afterIfAvailable(async () => {
+              console.info(
+                'AuthService#handleConnectionError | running after() .. | Sending notification to IU',
+              )
+
               const notificationService = new NotificationService(this.user)
               await notificationService.sendNotificationToIU(
                 intiatedBy,
