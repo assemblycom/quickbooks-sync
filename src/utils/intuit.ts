@@ -41,16 +41,24 @@ export default class Intuit {
   }
 
   async _authorizeUri(state: { token: string; originUrl?: string }) {
-    // AuthorizationUri
-    const authUri = await this.intuitQB.authorizeUri({
-      scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId],
-      state: JSON.stringify(state),
-    })
-    return authUri
+    try {
+      // AuthorizationUri
+      const authUri = await this.intuitQB.authorizeUri({
+        scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId],
+        state: JSON.stringify(state),
+      })
+      return authUri
+    } catch (error) {
+      throw IntuitOAuthError.fromRaw(error) ?? error
+    }
   }
 
   async _createToken(url: string) {
-    return await this.intuitQB.createToken(url)
+    try {
+      return await this.intuitQB.createToken(url)
+    } catch (error) {
+      throw IntuitOAuthError.fromRaw(error) ?? error
+    }
   }
 
   async _refreshAccessToken(refreshToken: string) {
