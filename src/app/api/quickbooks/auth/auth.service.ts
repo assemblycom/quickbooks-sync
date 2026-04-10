@@ -329,7 +329,7 @@ export class AuthService extends BaseService {
           )
         }
       } catch (error: unknown) {
-        console.error('AuthService#handleConnectionError | Error =', error)
+        console.error('AuthService#getQBPortalConnection | Error =', error)
 
         if (isIntuitOAuthError(error)) {
           // Special handling for refresh token expired
