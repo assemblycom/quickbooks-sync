@@ -30,7 +30,6 @@ describe('POST /api/quickbooks/webhook — price.created (copilot product 404)',
 
   beforeEach(async () => {
     await truncateAllTestTables()
-
     ;({ copilot, intuit } = installMockApis({
       copilot: createMockCopilotAPI({
         // Real CopilotAPI.getProduct returns undefined when the product
