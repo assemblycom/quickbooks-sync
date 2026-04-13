@@ -4,10 +4,7 @@ import {
   QBPortalConnection,
   QBPortalConnectionCreateSchema,
 } from '@/db/schema/qbPortalConnections'
-import {
-  QBSetting,
-  QBSettingCreateSchema,
-} from '@/db/schema/qbSettings'
+import { QBSetting, QBSettingCreateSchema } from '@/db/schema/qbSettings'
 
 export const TEST_PORTAL_ID = 'test-portal-00000001'
 export const TEST_REALM_ID = 'test-realm-123'

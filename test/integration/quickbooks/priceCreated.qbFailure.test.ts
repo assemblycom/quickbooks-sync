@@ -30,7 +30,6 @@ describe('POST /api/quickbooks/webhook — price.created (QB createItem fails)',
 
   beforeEach(async () => {
     await truncateAllTestTables()
-
     ;({ copilot, intuit } = installMockApis({
       intuit: createMockIntuitAPI({
         createItem: vi

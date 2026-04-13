@@ -9,10 +9,7 @@ import * as appHandler from '@/app/api/quickbooks/webhook/route'
 import priceCreatedPayload from '../../fixtures/priceCreated.webhook.json'
 import { truncateAllTestTables } from '../../helpers/testDb'
 import { seedHealthyPortal, TEST_PORTAL_ID } from '../../helpers/seed'
-import {
-  installMockApis,
-  type MockIntuitAPI,
-} from '../../helpers/mocks'
+import { installMockApis, type MockIntuitAPI } from '../../helpers/mocks'
 
 /**
  * Multi-price: when a product already has a price mapped to QB, a new price
