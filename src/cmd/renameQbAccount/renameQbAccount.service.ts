@@ -161,6 +161,8 @@ export class RenameQbAccountService extends BaseService {
         assetAccountRef: portal.assetAccountRef,
         serviceItemRef: portal.serviceItemRef,
         clientFeeRef: portal.clientFeeRef,
+        undepositedFundsAccountRef: portal.undepositedFundsAccountRef,
+        bankAccountRef: portal.bankAccountRef,
       }
     }
   }

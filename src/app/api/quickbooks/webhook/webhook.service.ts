@@ -19,10 +19,12 @@ import {
   WebhookEventResponseSchema,
   WebhookEventResponseType,
 } from '@/type/dto/webhook.dto'
+import { TokenService } from '@/app/api/quickbooks/token/token.service'
+import { AccountTypeObj } from '@/constant/qbConnection'
 import { validateAccessToken } from '@/utils/auth'
 import { CopilotAPI } from '@/utils/copilotAPI'
 import { ErrorMessageAndCode, getMessageAndCodeFromError } from '@/utils/error'
-import { IntuitAPITokensType } from '@/utils/intuitAPI'
+import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
 import { sleep } from '@/utils/sleep'
 import {
@@ -413,7 +415,10 @@ export class WebhookService extends BaseService {
     if (feeAmount?.paidByPlatform && feeAmount.paidByPlatform > 0) {
       // check if absorbed fee flag is true
       const settingService = new SettingService(this.user)
-      const setting = await settingService.getOneByPortalId(['absorbedFeeFlag'])
+      const setting = await settingService.getOneByPortalId([
+        'absorbedFeeFlag',
+        'bankDepositFeeFlag',
+      ])
 
       if (!setting?.absorbedFeeFlag) {
         console.info(
@@ -422,10 +427,15 @@ export class WebhookService extends BaseService {
         return
       }
 
+      const useBankDepositFlow = setting.bankDepositFeeFlag
+      const idempotencyEventType = useBankDepositFlow
+        ? EventType.DEPOSITED
+        : EventType.SUCCEEDED
+
       const syncLogService = new SyncLogService(this.user)
       const syncLog = await syncLogService.getOneByCopilotIdAndEventType({
         copilotId: parsedPaymentSucceedResource.data.id,
-        eventType: EventType.SUCCEEDED,
+        eventType: idempotencyEventType,
         entityType: EntityType.PAYMENT,
       })
       if (syncLog?.status === LogStatus.SUCCESS) {
@@ -447,13 +457,24 @@ export class WebhookService extends BaseService {
 
       try {
         validateAccessToken(qbTokenInfo)
-        // only track if the fee amount is paid by platform
         const paymentService = new PaymentService(this.user)
-        await paymentService.webhookPaymentSucceeded(
-          parsedPaymentSucceedResource,
-          qbTokenInfo,
-          invoice,
-        )
+
+        if (useBankDepositFlow) {
+          // Bank deposit flow: create a QBO Bank Deposit that matches the net bank amount
+          await this.handleBankDepositFlow(
+            parsedPaymentSucceedResource,
+            qbTokenInfo,
+            invoice,
+            paymentService,
+          )
+        } else {
+          // Legacy flow: create a standalone expense for absorbed fees
+          await paymentService.webhookPaymentSucceeded(
+            parsedPaymentSucceedResource,
+            qbTokenInfo,
+            invoice,
+          )
+        }
       } catch (error: unknown) {
         CustomLogger.error({ message: 'Webhook handler failed', obj: error })
         const errorWithCode = getMessageAndCodeFromError(error)
@@ -463,12 +484,14 @@ export class WebhookService extends BaseService {
         await syncLogService.updateOrCreateQBSyncLog({
           portalId: this.user.workspaceId,
           entityType: EntityType.PAYMENT,
-          eventType: EventType.SUCCEEDED,
+          eventType: idempotencyEventType,
           status: LogStatus.FAILED,
           copilotId: parsedPaymentSucceedResource.data.id,
           invoiceNumber: invoice.number,
           feeAmount: feeAmount ? feeAmount.paidByPlatform.toFixed(2) : '0',
-          remark: 'Absorbed fees',
+          remark: useBankDepositFlow
+            ? 'Bank deposit with fee deduction'
+            : 'Absorbed fees',
           qbItemName: 'Assembly Fees',
           errorMessage,
           deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
@@ -480,5 +503,70 @@ export class WebhookService extends BaseService {
         return
       }
     }
+  }
+
+  /**
+   * Creates a QBO Bank Deposit that moves the payment from Undeposited Funds
+   * to the customer's bank account, deducting Stripe fees.
+   * This makes the deposit amount match the actual bank transaction.
+   */
+  private async handleBankDepositFlow(
+    parsedPaymentSucceedResource: { data: { id: string; invoiceId: string; feeAmount: { paidByPlatform: number; paidByClient: number } | null; createdAt: string } },
+    qbTokenInfo: IntuitAPITokensType,
+    invoice: { number: string },
+    paymentService: PaymentService,
+  ) {
+    const feeAmount = parsedPaymentSucceedResource.data.feeAmount
+    if (!feeAmount)
+      throw new APIError(httpStatus.BAD_REQUEST, 'Fee amount is not found')
+
+    // Look up the QBO Payment ID from the sync log (created by webhookInvoicePaid)
+    const syncLogService = new SyncLogService(this.user)
+    const paidSyncLog = await syncLogService.getOneByCopilotIdAndEventType({
+      copilotId: parsedPaymentSucceedResource.data.invoiceId,
+      eventType: EventType.PAID,
+      entityType: EntityType.INVOICE,
+    })
+
+    if (!paidSyncLog?.quickbooksId) {
+      throw new APIError(
+        httpStatus.NOT_FOUND,
+        `QBO Payment not found in sync log for invoice: ${parsedPaymentSucceedResource.data.invoiceId}. The invoice.paid event may not have been processed yet.`,
+      )
+    }
+
+    const qbPaymentId = paidSyncLog.quickbooksId
+    const grossAmount = Number(paidSyncLog.amount) / 100
+    const platformFee = feeAmount.paidByPlatform / 100
+
+    // Get or verify account refs
+    const intuitApi = new IntuitAPI(qbTokenInfo)
+    const tokenService = new TokenService(this.user)
+
+    const expenseAccountRef = await tokenService.checkAndUpdateAccountStatus(
+      AccountTypeObj.Expense,
+      qbTokenInfo.intuitRealmId,
+      intuitApi,
+      qbTokenInfo.expenseAccountRef,
+    )
+
+    const bankAccountRef = qbTokenInfo.bankAccountRef
+    if (!bankAccountRef) {
+      throw new APIError(
+        httpStatus.BAD_REQUEST,
+        'Bank account ref is not configured. Please select a bank account in the QuickBooks integration settings.',
+      )
+    }
+
+    await paymentService.createBankDepositForPayment(intuitApi, {
+      qbPaymentId,
+      grossAmount,
+      feeAmount: platformFee,
+      bankAccountRef,
+      expenseAccountRef,
+      txnDate: parsedPaymentSucceedResource.data.createdAt.split('T')[0],
+      invoiceNumber: invoice.number,
+      paymentId: parsedPaymentSucceedResource.data.id,
+    })
   }
 }

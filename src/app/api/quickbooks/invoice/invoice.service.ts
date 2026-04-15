@@ -887,11 +887,37 @@ export class InvoiceService extends BaseService {
     }
 
     const invoiceAmount = Number(z.string().parse(invoiceLog.amount)) / 100
+
+    // Check if bank deposit fee flow is enabled — if so, route payment through Undeposited Funds
+    const settingService = new SettingService(this.user)
+    const setting = await settingService.getOneByPortalId([
+      'absorbedFeeFlag',
+      'bankDepositFeeFlag',
+    ])
+    const useBankDepositFlow =
+      setting?.absorbedFeeFlag && setting?.bankDepositFeeFlag
+
+    let depositToAccountRef: { value: string } | undefined
+    if (useBankDepositFlow) {
+      const tokenService = new TokenService(this.user)
+      const undepositedFundsRef =
+        await tokenService.checkAndUpdateAccountStatus(
+          AccountTypeObj.UndepositedFunds,
+          qbTokenInfo.intuitRealmId,
+          new IntuitAPI(qbTokenInfo),
+          qbTokenInfo.undepositedFundsAccountRef ?? undefined,
+        )
+      depositToAccountRef = { value: undepositedFundsRef }
+    }
+
     const qbPaymentPayload = {
       TotalAmt: invoiceAmount,
       CustomerRef: {
         value: existingCustomer.qbCustomerId,
       },
+      ...(depositToAccountRef && {
+        DepositToAccountRef: depositToAccountRef,
+      }),
       Line: [
         {
           Amount: invoiceAmount,
