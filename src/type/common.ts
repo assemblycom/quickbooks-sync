@@ -276,6 +276,7 @@ export const SettingRequestSchema = z
     id: z.string().optional(),
     type: z.nativeEnum(SettingType),
     absorbedFeeFlag: z.boolean().optional(),
+    bankDepositFeeFlag: z.boolean().optional(),
     useCompanyNameFlag: z.boolean().optional(),
     createNewProductFlag: z.boolean().optional(),
   })
@@ -286,6 +287,13 @@ export const SettingRequestSchema = z
           path: ['absorbedFeeFlag'],
           code: z.ZodIssueCode.custom,
           message: 'absorbedFeeFlag is required when type is invoice',
+        })
+      }
+      if (typeof val.bankDepositFeeFlag !== 'boolean') {
+        ctx.addIssue({
+          path: ['bankDepositFeeFlag'],
+          code: z.ZodIssueCode.custom,
+          message: 'bankDepositFeeFlag is required when type is invoice',
         })
       }
       if (typeof val.useCompanyNameFlag !== 'boolean') {
@@ -310,7 +318,10 @@ export const SettingRequestSchema = z
 export type SettingRequestType = z.infer<typeof SettingRequestSchema>
 
 export type InvoiceSettingType = Required<
-  Pick<SettingRequestType, 'absorbedFeeFlag' | 'useCompanyNameFlag'>
+  Pick<
+    SettingRequestType,
+    'absorbedFeeFlag' | 'bankDepositFeeFlag' | 'useCompanyNameFlag'
+  >
 > & { id?: string }
 
 export type ProductSettingType = Required<

@@ -22,7 +22,11 @@ export async function getSettings(req: NextRequest) {
       'initialProductSettingMap',
     )
     if (parsedType.data === SettingType.INVOICE)
-      returningFields.push('absorbedFeeFlag', 'useCompanyNameFlag')
+      returningFields.push(
+        'absorbedFeeFlag',
+        'bankDepositFeeFlag',
+        'useCompanyNameFlag',
+      )
     if (parsedType.data === SettingType.PRODUCT)
       returningFields.push('createNewProductFlag')
   }
