@@ -25,6 +25,8 @@ import {
   QBPaymentCreatePayloadType,
   QBPurchaseCreatePayloadSchema,
   QBPurchaseCreatePayloadType,
+  QBDepositCreatePayloadSchema,
+  QBDepositCreatePayloadType,
 } from '@/type/dto/intuitAPI.dto'
 import { PaymentSucceededResponseType } from '@/type/dto/webhook.dto'
 import { getMessageAndCodeFromError } from '@/utils/error'
@@ -182,6 +184,75 @@ export class PaymentService extends BaseService {
         Id: res.Purchase?.Id,
       }
       await intuitApi.deletePurchase(deletePayload)
+      throw error
+    }
+  }
+
+  async createBankDepositForPayment(
+    intuitApi: IntuitAPI,
+    opts: {
+      qbPaymentId: string
+      grossAmount: number
+      feeAmount: number
+      bankAccountRef: string
+      expenseAccountRef: string
+      txnDate: string
+      invoiceNumber: string
+      paymentId: string
+    },
+  ): Promise<void> {
+    const netAmount = opts.grossAmount - opts.feeAmount
+
+    const depositPayload: QBDepositCreatePayloadType = {
+      DepositToAccountRef: { value: opts.bankAccountRef },
+      TxnDate: opts.txnDate,
+      Line: [
+        {
+          Amount: opts.grossAmount,
+          LinkedTxn: [
+            { TxnId: opts.qbPaymentId, TxnType: 'Payment' as const },
+          ],
+        },
+        {
+          Amount: -opts.feeAmount,
+          DetailType: 'DepositLineDetail' as const,
+          DepositLineDetail: {
+            AccountRef: { value: opts.expenseAccountRef },
+          },
+          Description: 'Stripe processing fee',
+        },
+      ],
+    }
+
+    const parsedPayload = QBDepositCreatePayloadSchema.parse(depositPayload)
+
+    console.info(
+      `PaymentService#createBankDepositForPayment | Creating bank deposit: gross=${opts.grossAmount}, fee=${opts.feeAmount}, net=${netAmount}`,
+    )
+
+    const res = await intuitApi.createDeposit(parsedPayload)
+
+    try {
+      await this.logSync(
+        opts.paymentId,
+        {
+          qbInvoiceId: res.Deposit.Id,
+          invoiceNumber: opts.invoiceNumber,
+        },
+        EventType.DEPOSITED,
+        EntityType.PAYMENT,
+        {
+          amount: (opts.grossAmount * 100).toFixed(2),
+          feeAmount: (opts.feeAmount * 100).toFixed(2),
+          remark: 'Bank deposit with fee deduction',
+          qbItemName: 'Assembly Fees',
+          errorMessage: '',
+        },
+      )
+    } catch (error: unknown) {
+      console.error(
+        'PaymentService#createBankDepositForPayment | Failed to log sync, but deposit was created in QBO',
+      )
       throw error
     }
   }

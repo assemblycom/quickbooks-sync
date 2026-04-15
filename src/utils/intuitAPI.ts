@@ -13,6 +13,7 @@ import {
   QBPaymentCreatePayloadType,
   QBAccountCreatePayloadType,
   QBPurchaseCreatePayloadType,
+  QBDepositCreatePayloadType,
   QBDeletePayloadType,
   QBDestructiveInvoicePayloadSchema,
   QBNameValueSchemaType,
@@ -43,6 +44,8 @@ export type IntuitAPITokensType = Pick<
   | 'assetAccountRef'
   | 'serviceItemRef'
   | 'clientFeeRef'
+  | 'undepositedFundsAccountRef'
+  | 'bankAccountRef'
 > & { isSuspended?: boolean }
 
 export type BaseResponseType = {
@@ -810,6 +813,36 @@ export default class IntuitAPI {
     return purchase
   }
 
+  async _createDeposit(payload: QBDepositCreatePayloadType) {
+    CustomLogger.info({
+      obj: { payload },
+      message: `IntuitAPI#createDeposit | Deposit create start for realmId: ${this.tokens.intuitRealmId}.`,
+    })
+    const url = `${intuitBaseUrl}/v3/company/${this.tokens.intuitRealmId}/deposit?minorversion=${intuitApiMinorVersion}`
+    const deposit = await this.postFetchWithHeaders(url, payload)
+
+    if (!deposit)
+      throw new APIError(
+        httpStatus.BAD_REQUEST,
+        'IntuitAPI#createDeposit | message = no response',
+      )
+
+    if (deposit?.Fault) {
+      CustomLogger.error({ obj: deposit.Fault?.Error, message: 'Error: ' })
+      throw new APIError(
+        deposit.Fault?.Error?.code || httpStatus.BAD_REQUEST,
+        `${IntuitAPIErrorMessage}createDeposit`,
+        deposit.Fault?.Error,
+      )
+    }
+
+    CustomLogger.info({
+      obj: { response: deposit.Deposit },
+      message: `IntuitAPI#createDeposit | Deposit created with Id = ${deposit.Deposit?.Id}.`,
+    })
+    return deposit
+  }
+
   async _deletePurchase(payload: QBDeletePayloadType) {
     CustomLogger.info({
       obj: { payload },
@@ -941,6 +974,7 @@ export default class IntuitAPI {
   createAccount = this.wrapWithRetry(this._createAccount)
   updateAccount = this.wrapWithRetry(this._updateAccount)
   createPurchase = this.wrapWithRetry(this._createPurchase)
+  createDeposit = this.wrapWithRetry(this._createDeposit)
   deletePayment = this.wrapWithRetry(this._deletePayment)
   deletePurchase = this.wrapWithRetry(this._deletePurchase)
   getCompanyInfo = this.wrapWithRetry(this._getCompanyInfo)

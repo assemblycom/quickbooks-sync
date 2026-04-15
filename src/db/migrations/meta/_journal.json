@@ -99,6 +99,13 @@
       "when": 1775465579546,
       "tag": "20260406085259_add_customer_type_column_in_customers_table",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776278989518,
+      "tag": "20260415184949_add_bank_deposit_fee_columns",
+      "breakpoints": true
     }
   ]
 }

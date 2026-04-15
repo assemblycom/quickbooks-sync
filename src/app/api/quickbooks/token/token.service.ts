@@ -156,6 +156,9 @@ export class TokenService extends BaseService {
       case AccountTypeObj.Asset:
         payload = { assetAccountRef: accountRef }
         break
+      case AccountTypeObj.UndepositedFunds:
+        payload = { undepositedFundsAccountRef: accountRef }
+        break
       default:
         throw new APIError(
           httpStatus.BAD_REQUEST,
@@ -266,6 +269,29 @@ export class TokenService extends BaseService {
     return assetAccRef.Id
   }
 
+  private async getUndepositedFundsAccountRef(
+    intuitApi: IntuitAPI,
+  ): Promise<string> {
+    // "Undeposited Funds" is a system account in every QBO company.
+    // Look up by subtype first (more reliable than name if user renamed it).
+    const query = `SELECT Id FROM Account WHERE AccountSubType = 'UndepositedFunds' AND Active = true maxresults 1`
+    const result = await intuitApi.customQuery(query)
+    if (result?.Account?.[0]?.Id) {
+      return result.Account[0].Id
+    }
+
+    // Fallback: try by name
+    const byName = await intuitApi.getAnAccount('Undeposited Funds')
+    if (byName?.Id) {
+      return byName.Id
+    }
+
+    throw new APIError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'TokenService#getUndepositedFundsAccountRef | Undeposited Funds account not found in QuickBooks',
+    )
+  }
+
   private async restoreAccountRef(
     accountType: AccountType,
     intuitApi: IntuitAPI,
@@ -277,6 +303,8 @@ export class TokenService extends BaseService {
         return this.getOrCreateExpenseAccountRef(intuitApi)
       case AccountTypeObj.Asset:
         return this.getOrCreateAssetAccountRef(intuitApi)
+      case AccountTypeObj.UndepositedFunds:
+        return this.getUndepositedFundsAccountRef(intuitApi)
       default:
         throw new APIError(
           httpStatus.BAD_REQUEST,

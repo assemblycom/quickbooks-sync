@@ -28,11 +28,31 @@ export default function InvoiceDetail({
             label="Add absorbed fees to an Expense Account in QuickBooks"
             description="Record Assembly processing fees as expenses in the 'Assembly Processing Fees' expense account in QuickBooks."
             checked={settingState.absorbedFeeFlag}
-            onChange={() =>
-              changeSettings('absorbedFeeFlag', !settingState.absorbedFeeFlag)
-            }
+            onChange={() => {
+              const newValue = !settingState.absorbedFeeFlag
+              changeSettings('absorbedFeeFlag', newValue)
+              // Turn off bank deposit flag if absorbed fees is being disabled
+              if (!newValue && settingState.bankDepositFeeFlag) {
+                changeSettings('bankDepositFeeFlag', false)
+              }
+            }}
           />
         </div>
+        {settingState.absorbedFeeFlag && (
+          <div className="mb-5 ml-6">
+            <Checkbox
+              label="Create bank deposits for automatic bank reconciliation"
+              description="When payments are received, create QuickBooks bank deposits that match the net amount deposited to your bank (after Stripe fees), making bank transaction matching automatic."
+              checked={settingState.bankDepositFeeFlag}
+              onChange={() =>
+                changeSettings(
+                  'bankDepositFeeFlag',
+                  !settingState.bankDepositFeeFlag,
+                )
+              }
+            />
+          </div>
+        )}
         <div className="mb-6">
           <Checkbox
             label={`Use ${getWorkspaceLabel(workspace).groupTerm} name when syncing invoices billed to ${getWorkspaceLabel(workspace).groupTermPlural}`}

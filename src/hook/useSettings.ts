@@ -497,6 +497,7 @@ export const useMapItem = (
 export const useInvoiceDetailSettings = () => {
   const initialInvoiceSetting = {
     absorbedFeeFlag: false,
+    bankDepositFeeFlag: false,
     useCompanyNameFlag: false,
   }
   const { token, setAppParams } = useApp()
