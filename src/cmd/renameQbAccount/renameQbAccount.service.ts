@@ -1,16 +1,9 @@
 import { BaseService } from '@/app/api/core/services/base.service'
-import { TokenService } from '@/app/api/quickbooks/token/token.service'
-import {
-  PortalConnectionWithSettingType,
-  QBPortalConnection,
-  QBPortalConnectionUpdateSchemaType,
-} from '@/db/schema/qbPortalConnections'
+import { PortalConnectionWithSettingType } from '@/db/schema/qbPortalConnections'
 import { getAllActivePortalConnections } from '@/db/service/token.service'
-import Intuit from '@/utils/intuit'
 import IntuitAPI from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
-import dayjs from 'dayjs'
-import { and, eq, SQL } from 'drizzle-orm'
+import { refreshAndPersistQBToken } from '@/utils/tokenRefresh'
 
 const assetAccountNameOld = 'Copilot General Asset'
 const assetAccountNameNew = 'Assembly General Asset'
@@ -158,30 +151,23 @@ export class RenameQbAccountService extends BaseService {
   private async handleRefreshToken() {
     try {
       const portal = RenameQbAccountService.connection
-      const tokenInfo = await Intuit.getInstance().getRefreshedQBToken(
-        portal.refreshToken,
-      )
-
-      const updatedPayload: QBPortalConnectionUpdateSchemaType = {
-        accessToken: tokenInfo.access_token,
-        refreshToken: tokenInfo.refresh_token,
-        expiresIn: tokenInfo.expires_in,
-        XRefreshTokenExpiresIn: tokenInfo.x_refresh_token_expires_in,
-        tokenSetTime: dayjs().toDate(),
+      const currentTokens = {
+        accessToken: portal.accessToken,
+        refreshToken: portal.refreshToken,
+        intuitRealmId: portal.intuitRealmId,
+        incomeAccountRef: portal.incomeAccountRef,
+        expenseAccountRef: portal.expenseAccountRef,
+        assetAccountRef: portal.assetAccountRef,
+        serviceItemRef: portal.serviceItemRef,
+        clientFeeRef: portal.clientFeeRef,
       }
 
-      const whereConditions = and(
-        eq(QBPortalConnection.intuitRealmId, portal.intuitRealmId),
-        eq(QBPortalConnection.portalId, portal.portalId),
-      ) as SQL
-
-      const tokenService = new TokenService(this.user)
-      await tokenService.updateQBPortalConnection(
-        updatedPayload,
-        whereConditions,
-        ['id'],
+      await refreshAndPersistQBToken(
+        portal.portalId,
+        portal.intuitRealmId,
+        currentTokens,
       )
-      console.info('Access token refreshed and updated in DB 🔥')
+      console.info('Access token refreshed and updated in DB')
     } catch (error: unknown) {
       console.error('Issue while refreshing token')
       CustomLogger.error({

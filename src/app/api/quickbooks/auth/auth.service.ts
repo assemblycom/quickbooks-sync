@@ -12,26 +12,20 @@ import { intuitRedirectUri } from '@/config'
 import { OAuthErrorCodes } from '@/constant/intuitErrorCode'
 import { AccountTypeObj } from '@/constant/qbConnection'
 import { ConnectionStatus } from '@/db/schema/qbConnectionLogs'
-import {
-  QBPortalConnection,
-  QBPortalConnectionCreateSchemaType,
-  QBPortalConnectionUpdateSchemaType,
-} from '@/db/schema/qbPortalConnections'
+import { QBPortalConnectionCreateSchemaType } from '@/db/schema/qbPortalConnections'
 import { QBSetting } from '@/db/schema/qbSettings'
 import {
   getPortalConnection,
   getPortalSettings,
 } from '@/db/service/token.service'
-import {
-  QBAuthTokenResponse,
-  QBAuthTokenResponseSchema,
-} from '@/type/dto/qbAuthToken.dto'
+import { QBAuthTokenResponseSchema } from '@/type/dto/qbAuthToken.dto'
 import Intuit from '@/utils/intuit'
 import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
 import dayjs from 'dayjs'
-import { and, eq, SQL } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import httpStatus from 'http-status'
 import { afterIfAvailable } from '@/app/api/core/utils/afterIfAvailable'
+import { refreshAndPersistQBToken } from '@/utils/tokenRefresh'
 import { after } from 'next/server'
 
 export class AuthService extends BaseService {
@@ -291,44 +285,12 @@ export class AuthService extends BaseService {
 
     // Refresh token if expired
     if (dayjs().isAfter(expiryTime)) {
-      const tokenService = new TokenService(this.user)
       try {
-        const tokenInfo: QBAuthTokenResponse =
-          await Intuit.getInstance().getRefreshedQBToken(refreshToken)
-        const tokenSetTime = dayjs().toDate()
-
-        updatedTokenInfo = {
-          ...updatedTokenInfo,
-          accessToken: tokenInfo.access_token,
-          refreshToken: tokenInfo.refresh_token,
-        }
-
-        const updatedPayload: QBPortalConnectionUpdateSchemaType = {
-          accessToken: updatedTokenInfo.accessToken,
-          refreshToken: updatedTokenInfo.refreshToken,
-          expiresIn: tokenInfo.expires_in,
-          XRefreshTokenExpiresIn: tokenInfo.x_refresh_token_expires_in,
-          tokenSetTime,
-          updatedAt: dayjs().toDate(),
-        }
-
-        const whereConditions = and(
-          eq(QBPortalConnection.intuitRealmId, intuitRealmId),
-          eq(QBPortalConnection.portalId, portalId),
-        ) as SQL
-
-        const updateSync = await tokenService.updateQBPortalConnection(
-          updatedPayload,
-          whereConditions,
-          ['id'],
+        updatedTokenInfo = await refreshAndPersistQBToken(
+          portalId,
+          intuitRealmId,
+          updatedTokenInfo,
         )
-
-        if (!updateSync) {
-          throw new APIError(
-            httpStatus.INTERNAL_SERVER_ERROR,
-            `Cannot update sync status for portal ${portalId} and realmId ${intuitRealmId}.`,
-          )
-        }
       } catch (error: unknown) {
         console.error('AuthService#getQBPortalConnection | Error =', error)
 
@@ -342,6 +304,7 @@ export class AuthService extends BaseService {
           if (error.error === OAuthErrorCodes.INVALID_GRANT) {
             // indicates that the refresh token is invalid
             // turn off the sync and send notifications to IU (product and email)
+            const tokenService = new TokenService(this.user)
             await tokenService.turnOffSync(intuitRealmId)
 
             // send notification to IU

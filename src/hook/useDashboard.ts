@@ -3,7 +3,6 @@ import { checkForNonUsCompany } from '@/action/quickbooks.action'
 import { AuthStatus } from '@/app/api/core/types/auth'
 import { useApp } from '@/app/context/AppContext'
 import { CalloutVariant } from '@/components/type/callout'
-import { getPortalTokens } from '@/db/service/token.service'
 import { useQuickbooks } from '@/hook/useQuickbooks'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -16,7 +15,6 @@ export const useDashboardMain = () => {
     lastSyncTimestamp,
     isEnabled,
     portalConnectionStatus,
-    qbTokens,
     setAppParams,
   } = useApp()
 
@@ -41,18 +39,17 @@ export const useDashboardMain = () => {
 
   const checkCompanyCountry = useCallback(async () => {
     setNonUsCompanyChecking(true)
-    let tempTokenInfo = qbTokens
-    if (!tempTokenInfo) {
-      tempTokenInfo = await getPortalTokens(tokenPayload.workspaceId)
+    try {
+      const nonUsCompany = await checkForNonUsCompany(tokenPayload.workspaceId)
+      setAppParams((prev) => ({
+        ...prev,
+        nonUsCompany,
+      }))
+    } catch (err) {
+      console.error('checkCompanyCountry | Error =', err)
+    } finally {
+      setNonUsCompanyChecking(false)
     }
-
-    const nonUsCompany = await checkForNonUsCompany(tempTokenInfo)
-    setAppParams((prev) => ({
-      ...prev,
-      qbTokens: tempTokenInfo,
-      nonUsCompany,
-    }))
-    setNonUsCompanyChecking(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncFlag])
 
