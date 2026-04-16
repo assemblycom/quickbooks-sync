@@ -48,7 +48,7 @@ import { convert } from 'html-to-text'
 import httpStatus from 'http-status'
 import { z } from 'zod'
 import { addSyncBreadcrumb } from '@/utils/sentry'
-import { replaceSpecialCharsForQB } from '@/utils/string'
+import { replaceSpecialCharsForQB, truncateForQB } from '@/utils/string'
 import { AccountTypeObj } from '@/constant/qbConnection'
 
 type OneOffItemType = {
@@ -258,9 +258,11 @@ export class InvoiceService extends BaseService {
       eq(QBProductSync.productId, productId),
     )
 
-    const newName = replaceSpecialCharsForQB(
-      itemsCount > 0 ? `${productInfo.name} (${itemsCount})` : productInfo.name,
-    )
+    const sanitizedName = replaceSpecialCharsForQB(productInfo.name)
+    const newName =
+      itemsCount > 0
+        ? truncateForQB(sanitizedName, ` (${itemsCount})`)
+        : truncateForQB(sanitizedName)
 
     // check if item exist with name in QB. If yes, map in mapping table
     let qbItem = await intuitApi.getAnItem(newName)

@@ -36,6 +36,29 @@ export function escapeForQBQuery(input: string) {
   return input.replace(/'/g, "\\'")
 }
 
+const QBO_ITEM_NAME_MAX_LENGTH = 100
+
+/**
+ * Truncates a string to fit within QBO's item name limit (100 chars).
+ * If a suffix is provided (e.g. " (2)"), the base name is truncated to
+ * reserve room so the suffix is always preserved.
+ */
+export function truncateForQB(input: string, suffix?: string): string {
+  if (!suffix) {
+    if (input.length <= QBO_ITEM_NAME_MAX_LENGTH) {
+      return input
+    }
+    return input.slice(0, QBO_ITEM_NAME_MAX_LENGTH)
+  }
+
+  const combined = input + suffix
+  if (combined.length <= QBO_ITEM_NAME_MAX_LENGTH) {
+    return combined
+  }
+  const maxBaseLength = Math.max(0, QBO_ITEM_NAME_MAX_LENGTH - suffix.length)
+  return input.slice(0, maxBaseLength) + suffix
+}
+
 export function replaceSpecialCharsForQB(input: string) {
   // list of allowed characters in QB.
   // Doc: https://quickbooks.intuit.com/learn-support/en-us/help-article/account-management/acceptable-characters-quickbooks-online/L3CiHlD9J_US_en_US
