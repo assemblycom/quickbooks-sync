@@ -38,7 +38,7 @@
     "drizzle-zod": "^0.7.1",
     "html-to-text": "^9.0.5",
     "http-status": "^2.1.0",
-    "intuit-oauth": "^4.2.2",
+    "intuit-oauth": "^4.2.3",
     "javascript-time-ago": "^2.5.11",
     "json-2-csv": "^5.5.9",
     "next": "15.5.15",
