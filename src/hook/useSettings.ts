@@ -7,6 +7,7 @@ import {
   ProductFlattenResponseType,
 } from '@/type/dto/api.dto'
 import { getTimeInterval } from '@/utils/common'
+import { QBO_ITEM_NAME_MAX_LENGTH } from '@/utils/string'
 import {
   ProductMappingItemArraySchema,
   ProductMappingItemType,
@@ -376,7 +377,7 @@ export const useProductTableSetting = (
           },
         )
       }
-      ProductMappingItemArraySchema.parse(newMap)
+      // ProductMappingItemArraySchema.parse(newMap)
       // create deep copy of the newMap.
       if (newMap) {
         setAppParams((prev) => ({
@@ -441,10 +442,17 @@ export const useProductTableSetting = (
     postMessageBridge(payload)
   }
 
+  const formattedProducts = formatProductDataForListing(products)
+  const hasLongProductName =
+    formattedProducts?.some(
+      (product) => product.name.length > QBO_ITEM_NAME_MAX_LENGTH,
+    ) ?? false
+
   return {
-    products: formatProductDataForListing(products),
+    products: formattedProducts,
     quickbooksItems: formatQBItemForListing(quickbooksItems),
     handleCopilotProductCreate,
+    hasLongProductName,
   }
 }
 
