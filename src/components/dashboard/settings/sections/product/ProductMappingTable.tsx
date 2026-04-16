@@ -8,8 +8,10 @@ import {
   useMapItem,
   useProductTableSetting,
 } from '@/hook/useSettings'
-import { Icon } from 'copilot-design-system'
+import { Callout, Icon } from 'copilot-design-system'
 import { useRef } from 'react'
+import { CalloutVariant } from '@/components/type/callout'
+import { QBO_ITEM_NAME_MAX_LENGTH } from '@/utils/string'
 
 const MapItemComponent = ({
   mappingItems,
@@ -68,8 +70,12 @@ export default function ProductMappingTable({
   mappingItems,
   setMappingItems,
 }: Omit<ProductMappingComponentType, 'setting'>) {
-  const { products, quickbooksItems, handleCopilotProductCreate } =
-    useProductTableSetting(setMappingItems)
+  const {
+    products,
+    quickbooksItems,
+    handleCopilotProductCreate,
+    hasLongProductName,
+  } = useProductTableSetting(setMappingItems)
 
   const dropdownRef = useRef<HTMLDivElement>(null) // single ref for all dropdowns. Only opening one dropdown at a time.
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
@@ -88,6 +94,15 @@ export default function ProductMappingTable({
 
   return (
     <>
+      {hasLongProductName && (
+        <div className="mb-3">
+          <Callout
+            variant={CalloutVariant.WARNING}
+            title="Some service names exceed QuickBooks' 100-character limit"
+            description="QuickBooks only accepts item names up to 100 characters. Services marked with a warning icon may fail to sync. Please shorten their names to avoid issues with sync."
+          />
+        </div>
+      )}
       <div className="product-mapping-table bg-white border border-gray-200 text-left">
         <table className="w-full">
           <thead>
@@ -115,8 +130,16 @@ export default function ProductMappingTable({
                 <tr key={index} className="transition-colors">
                   {/* Assembly Products Column */}
                   <td className="py-2 pl-4 pr-3">
-                    <div className="text-sm leading-5 text-gray-600 break-all lg:break-normal">
-                      {product.name}
+                    <div className="text-sm leading-5 text-gray-600 break-all lg:break-normal flex items-start gap-1">
+                      <span>{product.name}</span>
+                      {product.name.length > QBO_ITEM_NAME_MAX_LENGTH && (
+                        <Icon
+                          icon="Warning"
+                          width={14}
+                          height={14}
+                          className="text-yellow-500 shrink-0 mt-0.5"
+                        />
+                      )}
                     </div>
                     <div className="text-body-xs leading-5 text-gray-500">
                       {product.price}

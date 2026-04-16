@@ -36,10 +36,12 @@ export function escapeForQBQuery(input: string) {
   return input.replace(/'/g, "\\'")
 }
 
-const QBO_ITEM_NAME_MAX_LENGTH = 100
+export const QBO_ITEM_NAME_MAX_LENGTH = 100
+const ELLIPSIS = '...'
 
 /**
- * Truncates a string to fit within QBO's item name limit (100 chars).
+ * Truncates a string to fit within QBO's item name limit (100 chars),
+ * appending "..." to indicate truncation.
  * If a suffix is provided (e.g. " (2)"), the base name is truncated to
  * reserve room so the suffix is always preserved.
  */
@@ -48,15 +50,18 @@ export function truncateForQB(input: string, suffix?: string): string {
     if (input.length <= QBO_ITEM_NAME_MAX_LENGTH) {
       return input
     }
-    return input.slice(0, QBO_ITEM_NAME_MAX_LENGTH)
+    return input.slice(0, QBO_ITEM_NAME_MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
   }
 
   const combined = input + suffix
   if (combined.length <= QBO_ITEM_NAME_MAX_LENGTH) {
     return combined
   }
-  const maxBaseLength = Math.max(0, QBO_ITEM_NAME_MAX_LENGTH - suffix.length)
-  return input.slice(0, maxBaseLength) + suffix
+  const maxBaseLength = Math.max(
+    0,
+    QBO_ITEM_NAME_MAX_LENGTH - suffix.length - ELLIPSIS.length,
+  )
+  return input.slice(0, maxBaseLength) + ELLIPSIS + suffix
 }
 
 export function replaceSpecialCharsForQB(input: string) {
