@@ -36,8 +36,12 @@ export function escapeForQBQuery(input: string) {
   return input.replace(/'/g, "\\'")
 }
 
-export const QBO_ITEM_NAME_MAX_LENGTH = 100
+const QBO_ITEM_NAME_LIMIT = 100
 const ELLIPSIS = '...'
+
+// Warning threshold is lower than the actual limit to account for
+// suffixes like " (N)" that get appended server-side for duplicate names.
+export const QBO_ITEM_NAME_MAX_LENGTH = 95
 
 /**
  * Truncates a string to fit within QBO's item name limit (100 chars),
@@ -47,19 +51,19 @@ const ELLIPSIS = '...'
  */
 export function truncateForQB(input: string, suffix?: string): string {
   if (!suffix) {
-    if (input.length <= QBO_ITEM_NAME_MAX_LENGTH) {
+    if (input.length <= QBO_ITEM_NAME_LIMIT) {
       return input
     }
-    return input.slice(0, QBO_ITEM_NAME_MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
+    return input.slice(0, QBO_ITEM_NAME_LIMIT - ELLIPSIS.length) + ELLIPSIS
   }
 
   const combined = input + suffix
-  if (combined.length <= QBO_ITEM_NAME_MAX_LENGTH) {
+  if (combined.length <= QBO_ITEM_NAME_LIMIT) {
     return combined
   }
   const maxBaseLength = Math.max(
     0,
-    QBO_ITEM_NAME_MAX_LENGTH - suffix.length - ELLIPSIS.length,
+    QBO_ITEM_NAME_LIMIT - suffix.length - ELLIPSIS.length,
   )
   return input.slice(0, maxBaseLength) + ELLIPSIS + suffix
 }

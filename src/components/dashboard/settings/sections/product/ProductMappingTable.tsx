@@ -98,7 +98,7 @@ export default function ProductMappingTable({
           <Callout
             variant={CalloutVariant.WARNING}
             title="Some service names exceed QuickBooks' 100-character limit"
-            description="QuickBooks only accepts item names up to 100 characters. Services marked with a warning icon may fail to sync. Please shorten their names to avoid issues with sync."
+            description="QuickBooks only accepts item names up to 100 characters. Services marked with a warning icon will be truncated with an ellipsis (...) when synced to QuickBooks. Please shorten their names to preserve the full name in QuickBooks."
           />
         </div>
       )}

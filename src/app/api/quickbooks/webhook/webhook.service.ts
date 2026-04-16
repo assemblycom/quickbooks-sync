@@ -160,6 +160,7 @@ export class WebhookService extends BaseService {
         qbTokenInfo,
       )
     } catch (error: unknown) {
+      CustomLogger.error({ message: 'Webhook handler failed', obj: error })
       await this.pushFailedInvoiceToSyncLog(
         EventType.CREATED,
         parsedInvoiceResource.data.id,
@@ -196,6 +197,7 @@ export class WebhookService extends BaseService {
         qbTokenInfo,
       )
     } catch (error: unknown) {
+      CustomLogger.error({ message: 'Webhook handler failed', obj: error })
       await this.pushFailedInvoiceToSyncLog(
         EventType.VOIDED,
         parsedVoidedInvoiceResource.data.id,
@@ -228,6 +230,7 @@ export class WebhookService extends BaseService {
       const invoiceService = new InvoiceService(this.user)
       await invoiceService.handleInvoiceDeleted(deletePayload, qbTokenInfo)
     } catch (error: unknown) {
+      CustomLogger.error({ message: 'Webhook handler failed', obj: error })
       await this.pushFailedInvoiceToSyncLog(
         EventType.DELETED,
         deletePayload.id,
@@ -263,6 +266,7 @@ export class WebhookService extends BaseService {
         qbTokenInfo,
       )
     } catch (error: unknown) {
+      CustomLogger.error({ message: 'Webhook handler failed', obj: error })
       const syncLogService = new SyncLogService(this.user)
       const errorWithCode = getMessageAndCodeFromError(error)
       const errorMessage = errorWithCode.message
@@ -308,6 +312,7 @@ export class WebhookService extends BaseService {
         qbTokenInfo,
       )
     } catch (error: unknown) {
+      CustomLogger.error({ message: 'Webhook handler failed', obj: error })
       const errorWithCode = getMessageAndCodeFromError(error)
       const errorMessage = errorWithCode.message
 
@@ -353,6 +358,7 @@ export class WebhookService extends BaseService {
         qbTokenInfo,
       )
     } catch (error: unknown) {
+      CustomLogger.error({ message: 'Webhook handler failed', obj: error })
       const syncLogService = new SyncLogService(this.user)
       const conditions = and(
         eq(QBSyncLog.portalId, this.user.workspaceId),
@@ -448,6 +454,7 @@ export class WebhookService extends BaseService {
           invoice,
         )
       } catch (error: unknown) {
+        CustomLogger.error({ message: 'Webhook handler failed', obj: error })
         const errorWithCode = getMessageAndCodeFromError(error)
         const errorMessage = errorWithCode.message
         const feeAmount = parsedPaymentSucceedResource.data.feeAmount
