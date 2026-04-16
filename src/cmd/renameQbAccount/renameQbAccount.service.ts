@@ -1,7 +1,7 @@
 import { BaseService } from '@/app/api/core/services/base.service'
 import { PortalConnectionWithSettingType } from '@/db/schema/qbPortalConnections'
 import { getAllActivePortalConnections } from '@/db/service/token.service'
-import IntuitAPI from '@/utils/intuitAPI'
+import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
 import { refreshAndPersistQBToken } from '@/utils/tokenRefresh'
 
@@ -41,19 +41,9 @@ export class RenameQbAccountService extends BaseService {
   }
 
   async processAccountRename() {
+    const freshTokens = await this.handleRefreshToken()
+    const intuitApi = new IntuitAPI(freshTokens)
     const portal = RenameQbAccountService.connection
-    const qbTokenInfo = {
-      accessToken: portal.accessToken,
-      refreshToken: portal.refreshToken,
-      intuitRealmId: portal.intuitRealmId,
-      incomeAccountRef: portal.incomeAccountRef,
-      expenseAccountRef: portal.expenseAccountRef,
-      assetAccountRef: portal.assetAccountRef,
-      serviceItemRef: portal.serviceItemRef,
-      clientFeeRef: portal.clientFeeRef,
-    }
-    const intuitApi = new IntuitAPI(qbTokenInfo)
-    await this.handleRefreshToken()
 
     let renameAssetAccount, renameExpenseAccount, renameClientFeeAccount
 
@@ -148,10 +138,21 @@ export class RenameQbAccountService extends BaseService {
     }
   }
 
-  private async handleRefreshToken() {
+  private async handleRefreshToken(): Promise<IntuitAPITokensType> {
+    const portal = RenameQbAccountService.connection
     try {
-      const portal = RenameQbAccountService.connection
-      const currentTokens = {
+      const freshTokens = await refreshAndPersistQBToken(portal.portalId)
+      console.info('Access token refreshed and updated in DB')
+      return freshTokens
+    } catch (error: unknown) {
+      console.error('Issue while refreshing token')
+      CustomLogger.error({
+        message: 'RenameQbAccountService#handleRefreshToken',
+        obj: { error },
+      })
+
+      // Fall back to existing tokens so the process can still attempt the rename
+      return {
         accessToken: portal.accessToken,
         refreshToken: portal.refreshToken,
         intuitRealmId: portal.intuitRealmId,
@@ -161,19 +162,6 @@ export class RenameQbAccountService extends BaseService {
         serviceItemRef: portal.serviceItemRef,
         clientFeeRef: portal.clientFeeRef,
       }
-
-      await refreshAndPersistQBToken(
-        portal.portalId,
-        portal.intuitRealmId,
-        currentTokens,
-      )
-      console.info('Access token refreshed and updated in DB')
-    } catch (error: unknown) {
-      console.error('Issue while refreshing token')
-      CustomLogger.error({
-        message: 'RenameQbAccountService#handleRefreshToken',
-        obj: { error },
-      })
     }
   }
 }

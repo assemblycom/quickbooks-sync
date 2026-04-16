@@ -2,8 +2,10 @@ import {
   QBPortalConnection,
   QBPortalConnectionUpdateSchemaType,
 } from '@/db/schema/qbPortalConnections'
+import { getPortalConnection } from '@/db/service/token.service'
 import Intuit from '@/utils/intuit'
 import { IntuitAPITokensType } from '@/utils/intuitAPI'
+import CustomLogger from '@/utils/logger'
 import { db } from '@/db'
 import { and, eq } from 'drizzle-orm'
 import dayjs from 'dayjs'
@@ -12,23 +14,50 @@ import dayjs from 'dayjs'
  * Refreshes a QBO access token via the Intuit SDK and persists
  * the new token set back to `qb_portal_connections`.
  *
+ * Fetches the portal connection internally — callers only need to
+ * supply the portalId (an extra DB read on the refresh path is
+ * acceptable given the Intuit API call that follows).
+ *
  * Callers are responsible for:
  * - Deciding *when* to refresh (e.g. checking expiry first).
  * - Handling domain-specific errors (e.g. INVALID_GRANT → turn off sync).
  */
 export async function refreshAndPersistQBToken(
   portalId: string,
-  intuitRealmId: string,
-  currentTokens: IntuitAPITokensType,
 ): Promise<IntuitAPITokensType> {
-  const refreshedToken = await Intuit.getInstance().getRefreshedQBToken(
-    currentTokens.refreshToken,
-  )
+  const portalConnection = await getPortalConnection(portalId)
+  if (!portalConnection) {
+    throw new Error(
+      `refreshAndPersistQBToken | Portal connection not found for portalId: ${portalId}`,
+    )
+  }
+
+  const {
+    refreshToken,
+    intuitRealmId,
+    incomeAccountRef,
+    expenseAccountRef,
+    assetAccountRef,
+    serviceItemRef,
+    clientFeeRef,
+  } = portalConnection
+
+  CustomLogger.info({
+    message: `refreshAndPersistQBToken | Refreshing access token for portalId: ${portalId}`,
+  })
+
+  const refreshedToken =
+    await Intuit.getInstance().getRefreshedQBToken(refreshToken)
 
   const updatedTokens: IntuitAPITokensType = {
-    ...currentTokens,
     accessToken: refreshedToken.access_token,
     refreshToken: refreshedToken.refresh_token,
+    intuitRealmId,
+    incomeAccountRef,
+    expenseAccountRef,
+    assetAccountRef,
+    serviceItemRef,
+    clientFeeRef,
   }
 
   const updatedPayload: QBPortalConnectionUpdateSchemaType = {
