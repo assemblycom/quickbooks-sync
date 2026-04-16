@@ -9,7 +9,7 @@ import {
 } from '@/db/service/token.service'
 import IntuitAPI from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
-import { refreshAndPersistQBToken } from '@/utils/tokenRefresh'
+import { getRefreshedQbTokenInfo } from '@/utils/tokenRefresh'
 import dayjs from 'dayjs'
 import { z } from 'zod'
 
@@ -55,7 +55,7 @@ export async function checkForNonUsCompany(portalId: string) {
     dayjs().isAfter(dayjs(tokenSetTime).add(expiresIn, 'seconds'))
 
   const tokenInfo = isExpired
-    ? await refreshAndPersistQBToken(portalId)
+    ? await getRefreshedQbTokenInfo(portalId)
     : {
         accessToken: portalConnection.accessToken,
         refreshToken: portalConnection.refreshToken,
