@@ -11,7 +11,6 @@ import {
 import { Callout, Icon } from 'copilot-design-system'
 import { useRef } from 'react'
 import { CalloutVariant } from '@/components/type/callout'
-import { QBO_ITEM_NAME_MAX_LENGTH } from '@/utils/string'
 
 const MapItemComponent = ({
   mappingItems,
@@ -132,13 +131,19 @@ export default function ProductMappingTable({
                   <td className="py-2 pl-4 pr-3">
                     <div className="text-sm leading-5 text-gray-600 break-all lg:break-normal flex items-start gap-1">
                       <span>{product.name}</span>
-                      {product.name.length > QBO_ITEM_NAME_MAX_LENGTH && (
-                        <Icon
-                          icon="Warning"
-                          width={14}
-                          height={14}
-                          className="text-yellow-500 shrink-0 mt-0.5"
-                        />
+                      {product.isNameTooLong && (
+                        <span
+                          role="img"
+                          aria-label="Name exceeds QuickBooks 100-character limit"
+                          className="shrink-0 mt-0.5"
+                        >
+                          <Icon
+                            icon="Warning"
+                            width={14}
+                            height={14}
+                            className="text-yellow-500"
+                          />
+                        </span>
                       )}
                     </div>
                     <div className="text-body-xs leading-5 text-gray-500">
