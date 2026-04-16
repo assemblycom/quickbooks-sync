@@ -34,7 +34,11 @@ import { QBSyncLog, QBSyncLogWithEntityType } from '@/db/schema/qbSyncLogs'
 import User from '@/app/api/core/models/User.model'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
 import { addSyncBreadcrumb } from '@/utils/sentry'
-import { replaceBeforeParens, replaceSpecialCharsForQB } from '@/utils/string'
+import {
+  replaceBeforeParens,
+  replaceSpecialCharsForQB,
+  truncateForQB,
+} from '@/utils/string'
 import { AccountTypeObj } from '@/constant/qbConnection'
 import { TokenService } from '@/app/api/quickbooks/token/token.service'
 
@@ -422,14 +426,16 @@ export class ProductService extends BaseService {
         console.info(
           `WebhookService#webhookProductUpdated | Update item in QB for QB Id = ${qbItemId}`,
         )
-        let qbItemName = replaceSpecialCharsForQB(
+        const sanitizedName = replaceSpecialCharsForQB(
           product.name
             ? replaceBeforeParens(product.name, productResource.name)
             : productResource.name,
         )
 
         // If item name is same, add itemCount to the name
-        if (itemNames.includes(qbItemName)) qbItemName += ` (${itemCount})`
+        const qbItemName = itemNames.includes(truncateForQB(sanitizedName))
+          ? truncateForQB(sanitizedName, ` (${itemCount})`)
+          : truncateForQB(sanitizedName)
 
         let productDescription = ''
         if (productResource.description) {
@@ -554,11 +560,11 @@ export class ProductService extends BaseService {
         )
       }
 
-      const qbItemName = replaceSpecialCharsForQB(
+      const sanitizedName = replaceSpecialCharsForQB(copilotProduct.name)
+      const qbItemName =
         itemsCount && itemsCount > 0
-          ? `${copilotProduct.name} (${itemsCount})`
-          : copilotProduct.name,
-      )
+          ? truncateForQB(sanitizedName, ` (${itemsCount})`)
+          : truncateForQB(sanitizedName)
       const productDescription = convert(copilotProduct.description)
 
       // check if item with name exists in QBO

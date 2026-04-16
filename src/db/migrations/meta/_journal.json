@@ -106,6 +106,13 @@
       "when": 1775955600000,
       "tag": "20260409070000_add_new_failed_record_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1776319984802,
+      "tag": "20260416061304_update_service_name_length_constraint",
+      "breakpoints": true
     }
   ]
 }

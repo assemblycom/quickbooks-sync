@@ -12,6 +12,7 @@ import { bottleneck } from '@/utils/bottleneck'
 import { QBItemFullUpdatePayloadType } from '@/type/dto/intuitAPI.dto'
 import { QBProductSync } from '@/db/schema/qbProductSync'
 import CustomLogger from '@/utils/logger'
+import { truncateForQB } from '@/utils/string'
 
 // Products updated during this window were missed during regular sync
 const SYNC_WINDOW_START = new Date('2026-02-17T00:00:00.000Z')
@@ -102,7 +103,7 @@ export class SyncMissedProductsService extends BaseService {
 
         const payload = {
           Id: mappedProduct.qbItemId,
-          Name: assemblyProduct.name,
+          Name: truncateForQB(assemblyProduct.name),
           SyncToken: mappedProduct.qbSyncToken,
           sparse: true,
           Active: true,
