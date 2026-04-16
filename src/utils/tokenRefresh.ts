@@ -22,13 +22,13 @@ import dayjs from 'dayjs'
  * - Deciding *when* to refresh (e.g. checking expiry first).
  * - Handling domain-specific errors (e.g. INVALID_GRANT → turn off sync).
  */
-export async function refreshAndPersistQBToken(
+export async function getRefreshedQbTokenInfo(
   portalId: string,
 ): Promise<IntuitAPITokensType> {
   const portalConnection = await getPortalConnection(portalId)
   if (!portalConnection) {
     throw new Error(
-      `refreshAndPersistQBToken | Portal connection not found for portalId: ${portalId}`,
+      `getRefreshedQbTokenInfo | Portal connection not found for portalId: ${portalId}`,
     )
   }
 
@@ -43,7 +43,7 @@ export async function refreshAndPersistQBToken(
   } = portalConnection
 
   CustomLogger.info({
-    message: `refreshAndPersistQBToken | Refreshing access token for portalId: ${portalId}`,
+    message: `getRefreshedQbTokenInfo | Refreshing access token for portalId: ${portalId}`,
   })
 
   const refreshedToken =
@@ -82,7 +82,7 @@ export async function refreshAndPersistQBToken(
 
   if (!updated) {
     throw new Error(
-      `refreshAndPersistQBToken | No row updated for portalId=${portalId}, realmId=${intuitRealmId}`,
+      `getRefreshedQbTokenInfo | No row updated for portalId=${portalId}, realmId=${intuitRealmId}`,
     )
   }
 

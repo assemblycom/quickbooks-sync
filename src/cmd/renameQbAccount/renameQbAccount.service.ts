@@ -3,7 +3,7 @@ import { PortalConnectionWithSettingType } from '@/db/schema/qbPortalConnections
 import { getAllActivePortalConnections } from '@/db/service/token.service'
 import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
-import { refreshAndPersistQBToken } from '@/utils/tokenRefresh'
+import { getRefreshedQbTokenInfo } from '@/utils/tokenRefresh'
 
 const assetAccountNameOld = 'Copilot General Asset'
 const assetAccountNameNew = 'Assembly General Asset'
@@ -141,7 +141,7 @@ export class RenameQbAccountService extends BaseService {
   private async handleRefreshToken(): Promise<IntuitAPITokensType> {
     const portal = RenameQbAccountService.connection
     try {
-      const freshTokens = await refreshAndPersistQBToken(portal.portalId)
+      const freshTokens = await getRefreshedQbTokenInfo(portal.portalId)
       console.info('Access token refreshed and updated in DB')
       return freshTokens
     } catch (error: unknown) {
