@@ -9,6 +9,8 @@ import {
 } from '@/db/service/token.service'
 import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
+import { refreshAndPersistQBToken } from '@/utils/tokenRefresh'
+import dayjs from 'dayjs'
 import { z } from 'zod'
 
 export async function checkPortalConnection(
@@ -33,10 +35,59 @@ export async function checkSyncStatus(portalId: string): Promise<boolean> {
   }
 }
 
-export async function checkForNonUsCompany(tokenInfo: IntuitAPITokensType) {
+export async function checkForNonUsCompany(portalId: string) {
   CustomLogger.info({
     message: 'checkForNonUsCompany | Checking for non-US company',
   })
+
+  const portalConnection = await getPortalConnection(portalId)
+  if (!portalConnection) {
+    throw new Error(
+      `checkForNonUsCompany | Portal connection not found for portalId: ${portalId}`,
+    )
+  }
+
+  const {
+    accessToken,
+    refreshToken,
+    intuitRealmId,
+    tokenSetTime,
+    expiresIn,
+    incomeAccountRef,
+    expenseAccountRef,
+    assetAccountRef,
+    serviceItemRef,
+    clientFeeRef,
+  } = portalConnection
+
+  let tokenInfo: IntuitAPITokensType = {
+    accessToken,
+    refreshToken,
+    intuitRealmId,
+    incomeAccountRef,
+    expenseAccountRef,
+    assetAccountRef,
+    serviceItemRef,
+    clientFeeRef,
+  }
+
+  // Refresh token if expired (treat missing tokenSetTime as expired)
+  const isExpired =
+    !tokenSetTime ||
+    dayjs().isAfter(dayjs(tokenSetTime).add(expiresIn, 'seconds'))
+  if (isExpired) {
+    CustomLogger.info({
+      message:
+        'checkForNonUsCompany | Access token expired, refreshing token...',
+    })
+
+    tokenInfo = await refreshAndPersistQBToken(
+      portalId,
+      intuitRealmId,
+      tokenInfo,
+    )
+  }
+
   const intuitApi = new IntuitAPI(tokenInfo)
   const companyInfo = await intuitApi.getCompanyInfo()
 
