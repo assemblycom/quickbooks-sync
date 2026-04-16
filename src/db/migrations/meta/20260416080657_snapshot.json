@@ -1,5 +1,5 @@
 {
-  "id": "d4f1a9a3-d741-4d1c-b944-a63837526d02",
+  "id": "1c9fbc27-72b3-4a6e-860c-6e3f247135d5",
   "prevId": "a3c7d892-5e1f-4b8a-9c6d-2f4e8a1b3d5c",
   "version": "7",
   "dialect": "postgresql",
@@ -803,7 +803,7 @@
         },
         "remark": {
           "name": "remark",
-          "type": "varchar(255)",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
@@ -833,7 +833,7 @@
         },
         "product_name": {
           "name": "product_name",
-          "type": "varchar(100)",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
