@@ -286,11 +286,7 @@ export class AuthService extends BaseService {
     // Refresh token if expired
     if (dayjs().isAfter(expiryTime)) {
       try {
-        updatedTokenInfo = await refreshAndPersistQBToken(
-          portalId,
-          intuitRealmId,
-          updatedTokenInfo,
-        )
+        updatedTokenInfo = await refreshAndPersistQBToken(portalId)
       } catch (error: unknown) {
         console.error('AuthService#getQBPortalConnection | Error =', error)
 

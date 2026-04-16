@@ -7,7 +7,7 @@ import {
   getPortalConnection,
   getPortalSettings,
 } from '@/db/service/token.service'
-import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
+import IntuitAPI from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
 import { refreshAndPersistQBToken } from '@/utils/tokenRefresh'
 import dayjs from 'dayjs'
@@ -47,46 +47,25 @@ export async function checkForNonUsCompany(portalId: string) {
     )
   }
 
-  const {
-    accessToken,
-    refreshToken,
-    intuitRealmId,
-    tokenSetTime,
-    expiresIn,
-    incomeAccountRef,
-    expenseAccountRef,
-    assetAccountRef,
-    serviceItemRef,
-    clientFeeRef,
-  } = portalConnection
-
-  let tokenInfo: IntuitAPITokensType = {
-    accessToken,
-    refreshToken,
-    intuitRealmId,
-    incomeAccountRef,
-    expenseAccountRef,
-    assetAccountRef,
-    serviceItemRef,
-    clientFeeRef,
-  }
+  const { tokenSetTime, expiresIn } = portalConnection
 
   // Refresh token if expired (treat missing tokenSetTime as expired)
   const isExpired =
     !tokenSetTime ||
     dayjs().isAfter(dayjs(tokenSetTime).add(expiresIn, 'seconds'))
-  if (isExpired) {
-    CustomLogger.info({
-      message:
-        'checkForNonUsCompany | Access token expired, refreshing token...',
-    })
 
-    tokenInfo = await refreshAndPersistQBToken(
-      portalId,
-      intuitRealmId,
-      tokenInfo,
-    )
-  }
+  const tokenInfo = isExpired
+    ? await refreshAndPersistQBToken(portalId)
+    : {
+        accessToken: portalConnection.accessToken,
+        refreshToken: portalConnection.refreshToken,
+        intuitRealmId: portalConnection.intuitRealmId,
+        incomeAccountRef: portalConnection.incomeAccountRef,
+        expenseAccountRef: portalConnection.expenseAccountRef,
+        assetAccountRef: portalConnection.assetAccountRef,
+        serviceItemRef: portalConnection.serviceItemRef,
+        clientFeeRef: portalConnection.clientFeeRef,
+      }
 
   const intuitApi = new IntuitAPI(tokenInfo)
   const companyInfo = await intuitApi.getCompanyInfo()
