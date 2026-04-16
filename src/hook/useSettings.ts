@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '@/app/context/AppContext'
 import { useSwrHelper } from '@/helper/swr.helper'
 import {
@@ -37,6 +37,7 @@ export type ProductDataType = {
   priceId: string
   numericPrice: number
   description?: string
+  isNameTooLong: boolean
 }
 
 export type QBItemDataType = {
@@ -285,6 +286,50 @@ export const useProductMappingSettings = () => {
   }
 }
 
+function formatProductDataForListing(
+  data: ProductFlattenArrayResponseType,
+): ProductDataType[] | undefined {
+  return data?.products?.length
+    ? data.products.map((product) => {
+        const price = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(product.amount / 100)
+        const newPrice = `${price} ${product?.interval && product?.intervalCount ? `/ ${getTimeInterval(product.interval, product.intervalCount)}` : ''}`
+        return {
+          id: product.id,
+          name: product.name,
+          description: product.description || '',
+          price: newPrice,
+          numericPrice: product.amount,
+          priceId: product.priceId,
+          isNameTooLong: product.name.length > QBO_ITEM_NAME_MAX_LENGTH,
+        }
+      })
+    : undefined
+}
+
+function formatQBItemForListing(
+  data: QuickbooksItemType[],
+): QBItemDataType[] | undefined {
+  return data?.length
+    ? data.map((product) => {
+        const price = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(product.UnitPrice)
+        return {
+          id: product.Id,
+          name: product.Name,
+          description: product?.Description || '',
+          price: price,
+          numericPrice: product.UnitPrice * 100,
+          syncToken: product.SyncToken,
+        }
+      })
+    : undefined
+}
+
 export const useProductTableSetting = (
   setMappingItems: (mapProducts: ProductMappingItemType[]) => void,
 ) => {
@@ -390,50 +435,6 @@ export const useProductTableSetting = (
     }
   }, [products, mappedItems, quickbooksItems])
 
-  const formatProductDataForListing = (
-    data: ProductFlattenArrayResponseType,
-  ): ProductDataType[] | undefined => {
-    return data?.products?.length
-      ? data.products.map((product) => {
-          // convert amount to dollar
-          const price = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-          }).format(product.amount / 100)
-          const newPrice = `${price} ${product?.interval && product?.intervalCount ? `/ ${getTimeInterval(product.interval, product.intervalCount)}` : ''}`
-          return {
-            id: product.id,
-            name: product.name,
-            description: product.description || '',
-            price: newPrice,
-            numericPrice: product.amount,
-            priceId: product.priceId,
-          }
-        })
-      : undefined
-  }
-
-  const formatQBItemForListing = (
-    data: QuickbooksItemType[],
-  ): QBItemDataType[] | undefined => {
-    return data?.length
-      ? data.map((product) => {
-          const price = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-          }).format(product.UnitPrice)
-          return {
-            id: product.Id,
-            name: product.Name,
-            description: product?.Description || '',
-            price: price,
-            numericPrice: product.UnitPrice * 100,
-            syncToken: product.SyncToken,
-          }
-        })
-      : undefined
-  }
-
   const handleCopilotProductCreate = () => {
     const payload = {
       type: 'history.push',
@@ -442,11 +443,14 @@ export const useProductTableSetting = (
     postMessageBridge(payload)
   }
 
-  const formattedProducts = formatProductDataForListing(products)
-  const hasLongProductName =
-    formattedProducts?.some(
-      (product) => product.name.length > QBO_ITEM_NAME_MAX_LENGTH,
-    ) ?? false
+  const { formattedProducts, hasLongProductName } = useMemo(() => {
+    const formatted = formatProductDataForListing(products)
+    return {
+      formattedProducts: formatted,
+      hasLongProductName:
+        formatted?.some((product) => product.isNameTooLong) ?? false,
+    }
+  }, [products])
 
   return {
     products: formattedProducts,
