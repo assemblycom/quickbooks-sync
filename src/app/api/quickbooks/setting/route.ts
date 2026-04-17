@@ -4,5 +4,7 @@ import {
   updateSettings,
 } from '@/app/api/quickbooks/setting/setting.controller'
 
+export const maxDuration = 300 // 5 minutes
+
 export const GET = withErrorHandler(getSettings)
 export const POST = withErrorHandler(updateSettings)
