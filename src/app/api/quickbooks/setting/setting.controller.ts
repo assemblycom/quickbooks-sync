@@ -1,6 +1,9 @@
 import authenticate from '@/app/api/core/utils/authenticate'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
+import { TokenService } from '@/app/api/quickbooks/token/token.service'
+import { QBPortalConnection } from '@/db/schema/qbPortalConnections'
 import { QBSetting, QBSettingsUpdateSchemaType } from '@/db/schema/qbSettings'
+import { getPortalConnection } from '@/db/service/token.service'
 import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -31,7 +34,14 @@ export async function getSettings(req: NextRequest) {
       returningFields.push('createNewProductFlag')
   }
   const setting = await settingService.getOneByPortalId(returningFields)
-  return NextResponse.json({ setting })
+
+  let bankAccountRef: string | null = null
+  if (parsedType.success && parsedType.data === SettingType.INVOICE) {
+    const portalConnection = await getPortalConnection(user.workspaceId)
+    bankAccountRef = portalConnection?.bankAccountRef || null
+  }
+
+  return NextResponse.json({ setting, bankAccountRef })
 }
 
 export async function updateSettings(req: NextRequest) {
@@ -43,8 +53,11 @@ export async function updateSettings(req: NextRequest) {
 
   const parsedType = z.nativeEnum(SettingType).parse(type)
 
+  const parsed = SettingRequestSchema.parse(body)
+  const { bankAccountRef, ...settingFields } = parsed
+
   const payload = {
-    ...SettingRequestSchema.parse(body),
+    ...settingFields,
     ...(parsedType === SettingType.INVOICE
       ? { initialInvoiceSettingMap: true }
       : { initialProductSettingMap: true }),
@@ -53,5 +66,18 @@ export async function updateSettings(req: NextRequest) {
     payload,
     eq(QBSetting.portalId, user.workspaceId),
   )
+
+  // Write bankAccountRef to qb_portal_connections (separate table)
+  if (
+    parsedType === SettingType.INVOICE &&
+    typeof bankAccountRef !== 'undefined'
+  ) {
+    const tokenService = new TokenService(user)
+    await tokenService.updateQBPortalConnection(
+      { bankAccountRef },
+      eq(QBPortalConnection.portalId, user.workspaceId),
+    )
+  }
+
   return NextResponse.json({ setting }, { status: httpStatus.CREATED })
 }

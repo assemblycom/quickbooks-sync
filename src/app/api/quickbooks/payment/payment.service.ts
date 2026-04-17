@@ -31,6 +31,7 @@ import {
 import { PaymentSucceededResponseType } from '@/type/dto/webhook.dto'
 import { getMessageAndCodeFromError } from '@/utils/error'
 import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
+import CustomLogger from '@/utils/logger'
 import {
   getDeletedAtForAuthAccountCategoryLog,
   getCategory,
@@ -206,16 +207,26 @@ export class PaymentService extends BaseService {
       paymentId: string
     },
   ): Promise<void> {
-    const netAmount = opts.grossAmount - opts.feeAmount
+    addSyncBreadcrumb('Creating bank deposit in QBO', {
+      invoiceNumber: opts.invoiceNumber,
+      qbPaymentId: opts.qbPaymentId,
+      grossAmount: opts.grossAmount,
+      feeAmount: opts.feeAmount,
+    })
 
     const depositPayload: QBDepositCreatePayloadType = {
       DepositToAccountRef: { value: opts.bankAccountRef },
+      PrivateNote: `Payout for invoice number: ${opts.invoiceNumber}`,
       TxnDate: opts.txnDate,
       Line: [
         {
           Amount: opts.grossAmount,
           LinkedTxn: [
-            { TxnId: opts.qbPaymentId, TxnType: 'Payment' as const },
+            {
+              TxnId: opts.qbPaymentId,
+              TxnType: 'Payment' as const,
+              TxnLineId: '0',
+            },
           ],
         },
         {
@@ -224,18 +235,28 @@ export class PaymentService extends BaseService {
           DepositLineDetail: {
             AccountRef: { value: opts.expenseAccountRef },
           },
-          Description: 'Stripe processing fee',
+          Description: 'Assembly processing fees',
         },
       ],
     }
 
     const parsedPayload = QBDepositCreatePayloadSchema.parse(depositPayload)
-
-    console.info(
-      `PaymentService#createBankDepositForPayment | Creating bank deposit: gross=${opts.grossAmount}, fee=${opts.feeAmount}, net=${netAmount}`,
-    )
-
     const res = await intuitApi.createDeposit(parsedPayload)
+
+    CustomLogger.info({
+      obj: {
+        depositId: res.Deposit?.Id,
+        grossAmount: opts.grossAmount,
+        feeAmount: opts.feeAmount,
+        netAmount: opts.grossAmount - opts.feeAmount,
+      },
+      message: `PaymentService#createBankDepositForPayment | Bank deposit created for invoice ${opts.invoiceNumber}`,
+    })
+
+    addSyncBreadcrumb('Bank deposit created in QBO', {
+      depositId: res.Deposit?.Id,
+      invoiceNumber: opts.invoiceNumber,
+    })
 
     try {
       await this.logSync(
@@ -255,9 +276,10 @@ export class PaymentService extends BaseService {
         },
       )
     } catch (error: unknown) {
-      console.error(
-        'PaymentService#createBankDepositForPayment | Failed to log sync, but deposit was created in QBO',
-      )
+      CustomLogger.error({
+        obj: error,
+        message: `PaymentService#createBankDepositForPayment | Failed to log sync for deposit ${res.Deposit?.Id}, but deposit was created in QBO`,
+      })
       throw error
     }
   }

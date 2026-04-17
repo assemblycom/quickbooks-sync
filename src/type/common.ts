@@ -277,6 +277,7 @@ export const SettingRequestSchema = z
     type: z.nativeEnum(SettingType),
     absorbedFeeFlag: z.boolean().optional(),
     bankDepositFeeFlag: z.boolean().optional(),
+    bankAccountRef: z.string().nullable().optional(),
     useCompanyNameFlag: z.boolean().optional(),
     createNewProductFlag: z.boolean().optional(),
   })
@@ -322,7 +323,7 @@ export type InvoiceSettingType = Required<
     SettingRequestType,
     'absorbedFeeFlag' | 'bankDepositFeeFlag' | 'useCompanyNameFlag'
   >
-> & { id?: string }
+> & { id?: string; bankAccountRef?: string | null }
 
 export type ProductSettingType = Required<
   Pick<SettingRequestType, 'createNewProductFlag'>
