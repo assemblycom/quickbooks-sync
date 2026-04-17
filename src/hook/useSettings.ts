@@ -506,11 +506,17 @@ export const useMapItem = (
   }
 }
 
+export type BankAccountType = {
+  Id: string
+  Name: string
+}
+
 export const useInvoiceDetailSettings = () => {
-  const initialInvoiceSetting = {
+  const initialInvoiceSetting: InvoiceSettingType = {
     absorbedFeeFlag: false,
     bankDepositFeeFlag: false,
     useCompanyNameFlag: false,
+    bankAccountRef: null,
   }
   const { token, setAppParams } = useApp()
   const [settingState, setSettingState] = useState<InvoiceSettingType>(
@@ -520,6 +526,7 @@ export const useInvoiceDetailSettings = () => {
   const [intialSettingState, setIntialSettingState] = useState<
     InvoiceSettingType | undefined
   >()
+
   const {
     data: setting,
     error,
@@ -529,9 +536,18 @@ export const useInvoiceDetailSettings = () => {
     revalidateOnMount: false,
   })
 
-  const changeSettings = async (
+  const { data: bankAccountsData, isLoading: isBankAccountsLoading } =
+    useSwrHelper(
+      settingState.bankDepositFeeFlag
+        ? `/api/quickbooks/setting/bank-account?token=${token}`
+        : null,
+      { suspense: false, revalidateOnMount: true },
+    )
+  const bankAccounts: BankAccountType[] = bankAccountsData?.accounts || []
+
+  const changeSettings = (
     flag: keyof InvoiceSettingType,
-    state: boolean,
+    state: boolean | string | null,
   ) => {
     setSettingState((prev) => ({
       ...prev,
@@ -539,16 +555,23 @@ export const useInvoiceDetailSettings = () => {
     }))
   }
 
+  const selectBankAccount = (ref: string) => {
+    setSettingState((prev) => ({ ...prev, bankAccountRef: ref }))
+  }
+
   useEffect(() => {
     if (!settingState || !intialSettingState) return
-    const showButton = !equal(intialSettingState, settingState)
-    setShowButton(showButton)
-  }, [settingState])
+    setShowButton(!equal(intialSettingState, settingState))
+  }, [settingState, intialSettingState])
 
   useEffect(() => {
     if (setting && setting?.setting) {
-      setSettingState(setting.setting)
-      setIntialSettingState(structuredClone(setting.setting))
+      const loaded: InvoiceSettingType = {
+        ...setting.setting,
+        bankAccountRef: setting.bankAccountRef || null,
+      }
+      setSettingState(loaded)
+      setIntialSettingState(structuredClone(loaded))
       setAppParams((prev) => ({
         ...prev,
         initialInvoiceSettingMapFlag: setting.setting.initialInvoiceSettingMap,
@@ -562,16 +585,21 @@ export const useInvoiceDetailSettings = () => {
 
   const submitInvoiceSettings = async () => {
     setShowButton(false)
-    const res = await postFetcher(
-      `/api/quickbooks/setting?type=${SettingType.INVOICE}&token=${token}`,
-      {},
-      { ...settingState, type: SettingType.INVOICE },
-    )
-    if (!res || res?.error) {
-      setShowButton(true) // show the update settings button if error
-      console.error('Error submitting Invoice settings', { res })
-    } else {
-      mutate(`/api/quickbooks/setting?type=invoice&token=${token}`)
+    try {
+      const res = await postFetcher(
+        `/api/quickbooks/setting?type=${SettingType.INVOICE}&token=${token}`,
+        {},
+        { ...settingState, type: SettingType.INVOICE },
+      )
+      if (res?.error) {
+        setShowButton(true)
+        console.error('Error submitting Invoice settings', { res })
+      } else {
+        mutate(`/api/quickbooks/setting?type=invoice&token=${token}`)
+      }
+    } catch (err) {
+      setShowButton(true)
+      console.error('Error submitting Invoice settings', err)
     }
   }
 
@@ -588,6 +616,9 @@ export const useInvoiceDetailSettings = () => {
     error,
     isLoading,
     showButton,
+    bankAccounts,
+    isBankAccountsLoading,
+    selectBankAccount,
   }
 }
 
