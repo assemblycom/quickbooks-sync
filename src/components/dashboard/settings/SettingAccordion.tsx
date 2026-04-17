@@ -42,6 +42,9 @@ export default function SettingAccordion({
     isLoading,
     changeSettings,
     showButton: showInvoiceButton,
+    bankAccounts,
+    isBankAccountsLoading,
+    selectBankAccount,
   } = useInvoiceDetailSettings()
 
   const accordionItems = [
@@ -72,6 +75,9 @@ export default function SettingAccordion({
           settingState={settingState}
           changeSettings={changeSettings}
           isLoading={isLoading}
+          bankAccounts={bankAccounts}
+          isBankAccountsLoading={isBankAccountsLoading}
+          selectBankAccount={selectBankAccount}
         />
       ),
     },
