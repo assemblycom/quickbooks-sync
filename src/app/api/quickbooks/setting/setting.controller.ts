@@ -1,6 +1,7 @@
 import authenticate from '@/app/api/core/utils/authenticate'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
 import { TokenService } from '@/app/api/quickbooks/token/token.service'
+import { db } from '@/db'
 import { QBPortalConnection } from '@/db/schema/qbPortalConnections'
 import { QBSetting, QBSettingsUpdateSchemaType } from '@/db/schema/qbSettings'
 import { getPortalConnection } from '@/db/service/token.service'
@@ -62,22 +63,30 @@ export async function updateSettings(req: NextRequest) {
       ? { initialInvoiceSettingMap: true }
       : { initialProductSettingMap: true }),
   }
-  const setting = await settingService.updateQBSettings(
-    payload,
-    eq(QBSetting.portalId, user.workspaceId),
-  )
 
-  // Write bankAccountRef to qb_portal_connections (separate table)
-  if (
-    parsedType === SettingType.INVOICE &&
-    typeof bankAccountRef !== 'undefined'
-  ) {
-    const tokenService = new TokenService(user)
-    await tokenService.updateQBPortalConnection(
-      { bankAccountRef },
-      eq(QBPortalConnection.portalId, user.workspaceId),
+  const writeBankAccountRef =
+    parsedType === SettingType.INVOICE && typeof bankAccountRef !== 'undefined'
+
+  // Wrap both writes in a transaction to prevent partial state
+  // (e.g. bankDepositFeeFlag=true but bankAccountRef=null)
+  const setting = await db.transaction(async (tx) => {
+    settingService.setTransaction(tx)
+    const result = await settingService.updateQBSettings(
+      payload,
+      eq(QBSetting.portalId, user.workspaceId),
     )
-  }
+
+    if (writeBankAccountRef) {
+      const tokenService = new TokenService(user)
+      tokenService.setTransaction(tx)
+      await tokenService.updateQBPortalConnection(
+        { bankAccountRef },
+        eq(QBPortalConnection.portalId, user.workspaceId),
+      )
+    }
+
+    return result
+  })
 
   return NextResponse.json({ setting }, { status: httpStatus.CREATED })
 }

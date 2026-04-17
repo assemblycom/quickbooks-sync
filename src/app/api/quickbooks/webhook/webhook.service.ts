@@ -446,17 +446,19 @@ export class WebhookService extends BaseService {
         return
       }
 
-      const copilotApp = new CopilotAPI(this.user.token)
-      const invoice = await copilotApp.getInvoice(
-        parsedPaymentSucceedResource.data.invoiceId,
-      )
-      if (!invoice)
-        throw new APIError(
-          httpStatus.NOT_FOUND,
-          `Invoice not found in Assembly for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
+      let invoice: Awaited<ReturnType<CopilotAPI['getInvoice']>>
+      try {
+        const copilotApp = new CopilotAPI(this.user.token)
+        invoice = await copilotApp.getInvoice(
+          parsedPaymentSucceedResource.data.invoiceId,
         )
 
-      try {
+        if (!invoice)
+          throw new APIError(
+            httpStatus.NOT_FOUND,
+            `Invoice not found in Assembly for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
+          )
+
         validateAccessToken(qbTokenInfo)
         const paymentService = new PaymentService(this.user)
 
@@ -488,7 +490,7 @@ export class WebhookService extends BaseService {
           eventType: idempotencyEventType,
           status: LogStatus.FAILED,
           copilotId: parsedPaymentSucceedResource.data.id,
-          invoiceNumber: invoice.number,
+          invoiceNumber: invoice?.number,
           feeAmount: feeAmount ? feeAmount.paidByPlatform.toFixed(2) : '0',
           remark: useBankDepositFlow
             ? 'Bank deposit with fee deduction'
@@ -547,6 +549,12 @@ export class WebhookService extends BaseService {
     }
 
     const qbPaymentId = paidSyncLog.quickbooksId
+    if (!paidSyncLog.amount) {
+      throw new APIError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        `PAID sync log for invoice ${invoiceId} has no amount recorded`,
+      )
+    }
     const grossAmount = Number(paidSyncLog.amount) / 100
     const platformFee = feeAmount.paidByPlatform / 100
 
