@@ -113,6 +113,13 @@
       "when": 1776326817946,
       "tag": "20260416080657_update_service_name_length_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776410196223,
+      "tag": "20260417071636_add_bank_deposite_fee_column",
+      "breakpoints": true
     }
   ]
 }

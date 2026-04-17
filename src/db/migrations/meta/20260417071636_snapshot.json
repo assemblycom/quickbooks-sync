@@ -1,6 +1,6 @@
 {
-  "id": "2140b645-01c8-4153-b18f-eb1bf7ae6c5d",
-  "prevId": "1f41b71d-f21a-44c6-af6a-4fda7762d670",
+  "id": "dbeaa706-8b28-4714-9dca-aab6516ff0d5",
+  "prevId": "1c9fbc27-72b3-4a6e-860c-6e3f247135d5",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -563,7 +563,7 @@
         },
         "name": {
           "name": "name",
-          "type": "varchar(100)",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
@@ -575,7 +575,7 @@
         },
         "copilot_name": {
           "name": "copilot_name",
-          "type": "varchar(100)",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
@@ -822,7 +822,7 @@
         },
         "remark": {
           "name": "remark",
-          "type": "varchar(255)",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
@@ -852,7 +852,7 @@
         },
         "product_name": {
           "name": "product_name",
-          "type": "varchar(100)",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
@@ -966,7 +966,8 @@
         "deleted",
         "succeeded",
         "mapped",
-        "unmapped"
+        "unmapped",
+        "deposited"
       ]
     },
     "public.failed_record_category_types": {
@@ -975,6 +976,10 @@
       "values": [
         "auth",
         "account",
+        "rate_limit",
+        "validation",
+        "qb_api_error",
+        "mapping_not_found",
         "others"
       ]
     },

@@ -40,6 +40,8 @@ export async function getRefreshedQbTokenInfo(
     assetAccountRef,
     serviceItemRef,
     clientFeeRef,
+    undepositedFundsAccountRef,
+    bankAccountRef,
   } = portalConnection
 
   CustomLogger.info({
@@ -58,6 +60,8 @@ export async function getRefreshedQbTokenInfo(
     assetAccountRef,
     serviceItemRef,
     clientFeeRef,
+    undepositedFundsAccountRef,
+    bankAccountRef,
   }
 
   const updatedPayload: QBPortalConnectionUpdateSchemaType = {

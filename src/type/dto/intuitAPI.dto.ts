@@ -206,6 +206,7 @@ export const QBDepositLineSchema = z.union([
       z.object({
         TxnId: z.string(),
         TxnType: z.literal('Payment'),
+        TxnLineId: z.string(),
       }),
     ),
   }),
@@ -223,6 +224,7 @@ export const QBDepositCreatePayloadSchema = z.object({
   DepositToAccountRef: z.object({
     value: z.string(),
   }),
+  PrivateNote: z.string().optional(),
   TxnDate: z.string(),
   Line: z.array(QBDepositLineSchema),
 })

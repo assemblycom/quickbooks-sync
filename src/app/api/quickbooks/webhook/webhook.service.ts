@@ -14,6 +14,7 @@ import {
   InvoiceDeletedResponseSchema,
   InvoiceResponseSchema,
   PaymentSucceededResponseSchema,
+  PaymentSucceededResponseType,
   PriceCreatedResponseSchema,
   ProductUpdatedResponseSchema,
   WebhookEventResponseSchema,
@@ -398,7 +399,7 @@ export class WebhookService extends BaseService {
     payload: unknown,
     qbTokenInfo: IntuitAPITokensType,
   ) {
-    await sleep(7000) // Payment succeed event can sometimes trigger before invoice created.
+    await sleep(20000) // Payment succeed event can sometimes trigger before invoice created.
 
     console.info('###### PAYMENT SUCCEEDED ######')
     const parsedPaymentSucceed =
@@ -511,11 +512,21 @@ export class WebhookService extends BaseService {
    * This makes the deposit amount match the actual bank transaction.
    */
   private async handleBankDepositFlow(
-    parsedPaymentSucceedResource: { data: { id: string; invoiceId: string; feeAmount: { paidByPlatform: number; paidByClient: number } | null; createdAt: string } },
+    parsedPaymentSucceedResource: PaymentSucceededResponseType,
     qbTokenInfo: IntuitAPITokensType,
     invoice: { number: string },
     paymentService: PaymentService,
   ) {
+    const paymentId = parsedPaymentSucceedResource.data.id
+    const invoiceId = parsedPaymentSucceedResource.data.invoiceId
+
+    addSyncBreadcrumb('Bank deposit flow started', {
+      paymentId,
+      invoiceId,
+      invoiceNumber: invoice.number,
+      portalId: this.user.workspaceId,
+    })
+
     const feeAmount = parsedPaymentSucceedResource.data.feeAmount
     if (!feeAmount)
       throw new APIError(httpStatus.BAD_REQUEST, 'Fee amount is not found')
@@ -523,7 +534,7 @@ export class WebhookService extends BaseService {
     // Look up the QBO Payment ID from the sync log (created by webhookInvoicePaid)
     const syncLogService = new SyncLogService(this.user)
     const paidSyncLog = await syncLogService.getOneByCopilotIdAndEventType({
-      copilotId: parsedPaymentSucceedResource.data.invoiceId,
+      copilotId: invoiceId,
       eventType: EventType.PAID,
       entityType: EntityType.INVOICE,
     })
@@ -531,13 +542,19 @@ export class WebhookService extends BaseService {
     if (!paidSyncLog?.quickbooksId) {
       throw new APIError(
         httpStatus.NOT_FOUND,
-        `QBO Payment not found in sync log for invoice: ${parsedPaymentSucceedResource.data.invoiceId}. The invoice.paid event may not have been processed yet.`,
+        `QBO Payment not found in sync log for invoice: ${invoiceId}. The invoice.paid event may not have been processed yet.`,
       )
     }
 
     const qbPaymentId = paidSyncLog.quickbooksId
     const grossAmount = Number(paidSyncLog.amount) / 100
     const platformFee = feeAmount.paidByPlatform / 100
+
+    addSyncBreadcrumb('Bank deposit payment resolved', {
+      qbPaymentId,
+      grossAmount,
+      platformFee,
+    })
 
     // Get or verify account refs
     const intuitApi = new IntuitAPI(qbTokenInfo)
@@ -554,9 +571,14 @@ export class WebhookService extends BaseService {
     if (!bankAccountRef) {
       throw new APIError(
         httpStatus.BAD_REQUEST,
-        'Bank account ref is not configured. Please select a bank account in the QuickBooks integration settings.',
+        `Bank account ref is not configured for portal ${this.user.workspaceId}. Please select a bank account in the QuickBooks integration settings.`,
       )
     }
+
+    addSyncBreadcrumb('Bank deposit account refs verified', {
+      expenseAccountRef,
+      bankAccountRef,
+    })
 
     await paymentService.createBankDepositForPayment(intuitApi, {
       qbPaymentId,
@@ -566,7 +588,7 @@ export class WebhookService extends BaseService {
       expenseAccountRef,
       txnDate: parsedPaymentSucceedResource.data.createdAt.split('T')[0],
       invoiceNumber: invoice.number,
-      paymentId: parsedPaymentSucceedResource.data.id,
+      paymentId,
     })
   }
 }
