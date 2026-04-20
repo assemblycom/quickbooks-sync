@@ -412,7 +412,7 @@ export default class IntuitAPI {
       )
     }
 
-    return QBItemsResponseSchema.parse(qbItems.Item ?? [])
+    return QBItemsResponseSchema.parse(qbItems.Item || [])
   }
 
   async _invoiceSparseUpdate(payload: QBInvoiceSparseUpdatePayloadType) {
