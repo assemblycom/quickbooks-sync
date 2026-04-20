@@ -1,5 +1,5 @@
 {
-  "id": "dbeaa706-8b28-4714-9dca-aab6516ff0d5",
+  "id": "9eb854f3-0544-46b9-8b4f-6ad7457aaac9",
   "prevId": "1c9fbc27-72b3-4a6e-860c-6e3f247135d5",
   "version": "7",
   "dialect": "postgresql",
@@ -464,12 +464,6 @@
         },
         "service_item_ref": {
           "name": "service_item_ref",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "undeposited_funds_account_ref": {
-          "name": "undeposited_funds_account_ref",
           "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
@@ -966,8 +960,7 @@
         "deleted",
         "succeeded",
         "mapped",
-        "unmapped",
-        "deposited"
+        "unmapped"
       ]
     },
     "public.failed_record_category_types": {

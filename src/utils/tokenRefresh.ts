@@ -40,7 +40,6 @@ export async function getRefreshedQbTokenInfo(
     assetAccountRef,
     serviceItemRef,
     clientFeeRef,
-    undepositedFundsAccountRef,
     bankAccountRef,
   } = portalConnection
 
@@ -60,7 +59,6 @@ export async function getRefreshedQbTokenInfo(
     assetAccountRef,
     serviceItemRef,
     clientFeeRef,
-    undepositedFundsAccountRef,
     bankAccountRef,
   }
 
