@@ -47,6 +47,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { convert } from 'html-to-text'
 import httpStatus from 'http-status'
 import { z } from 'zod'
+import { isPortalInBankDepositABTest } from '@/utils/abTesting'
 import { addSyncBreadcrumb } from '@/utils/sentry'
 import { replaceSpecialCharsForQB, truncateForQB } from '@/utils/string'
 import { AccountTypeObj } from '@/constant/qbConnection'
@@ -895,7 +896,9 @@ export class InvoiceService extends BaseService {
       'bankDepositFeeFlag',
     ])
     const useBankDepositFlow =
-      setting?.absorbedFeeFlag && setting?.bankDepositFeeFlag
+      setting?.absorbedFeeFlag &&
+      setting?.bankDepositFeeFlag &&
+      isPortalInBankDepositABTest(this.user.workspaceId)
 
     const intuitApi = new IntuitAPI(qbTokenInfo)
 

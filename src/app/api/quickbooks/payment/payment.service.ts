@@ -265,7 +265,7 @@ export class PaymentService extends BaseService {
           qbInvoiceId: res.Deposit.Id,
           invoiceNumber: opts.invoiceNumber,
         },
-        EventType.DEPOSITED,
+        EventType.SUCCEEDED,
         EntityType.PAYMENT,
         {
           amount: (opts.grossAmount * 100).toFixed(2),

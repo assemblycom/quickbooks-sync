@@ -42,6 +42,7 @@ export default function SettingAccordion({
     isLoading,
     changeSettings,
     showButton: showInvoiceButton,
+    bankDepositEnabled,
     bankAccounts,
     isBankAccountsLoading,
     selectBankAccount,
@@ -75,6 +76,7 @@ export default function SettingAccordion({
           settingState={settingState}
           changeSettings={changeSettings}
           isLoading={isLoading}
+          bankDepositEnabled={bankDepositEnabled}
           bankAccounts={bankAccounts}
           isBankAccountsLoading={isBankAccountsLoading}
           selectBankAccount={selectBankAccount}

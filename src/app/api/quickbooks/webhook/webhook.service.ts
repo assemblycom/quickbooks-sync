@@ -32,6 +32,7 @@ import {
   getDeletedAtForAuthAccountCategoryLog,
   getCategory,
 } from '@/utils/synclog'
+import { isPortalInBankDepositABTest } from '@/utils/abTesting'
 import { addSyncBreadcrumb } from '@/utils/sentry'
 import { and, eq } from 'drizzle-orm'
 import httpStatus from 'http-status'
@@ -399,7 +400,7 @@ export class WebhookService extends BaseService {
     payload: unknown,
     qbTokenInfo: IntuitAPITokensType,
   ) {
-    await sleep(20000) // Payment succeed event can sometimes trigger before invoice created.
+    await sleep(25000) // Payment succeed event can sometimes trigger before invoice created.
 
     console.info('###### PAYMENT SUCCEEDED ######')
     const parsedPaymentSucceed =
@@ -428,10 +429,10 @@ export class WebhookService extends BaseService {
         return
       }
 
-      const useBankDepositFlow = setting.bankDepositFeeFlag
-      const idempotencyEventType = useBankDepositFlow
-        ? EventType.DEPOSITED
-        : EventType.SUCCEEDED
+      const useBankDepositFlow =
+        setting.bankDepositFeeFlag &&
+        isPortalInBankDepositABTest(this.user.workspaceId)
+      const idempotencyEventType = EventType.SUCCEEDED
 
       const syncLogService = new SyncLogService(this.user)
       const syncLog = await syncLogService.getOneByCopilotIdAndEventType({

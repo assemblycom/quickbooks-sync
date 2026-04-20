@@ -1,6 +1,7 @@
 import authenticate from '@/app/api/core/utils/authenticate'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
 import { TokenService } from '@/app/api/quickbooks/token/token.service'
+import { isPortalInBankDepositABTest } from '@/utils/abTesting'
 import { db } from '@/db'
 import { QBPortalConnection } from '@/db/schema/qbPortalConnections'
 import { QBSetting, QBSettingsUpdateSchemaType } from '@/db/schema/qbSettings'
@@ -42,7 +43,9 @@ export async function getSettings(req: NextRequest) {
     bankAccountRef = portalConnection?.bankAccountRef || null
   }
 
-  return NextResponse.json({ setting, bankAccountRef })
+  const bankDepositEnabled = isPortalInBankDepositABTest(user.workspaceId)
+
+  return NextResponse.json({ setting, bankAccountRef, bankDepositEnabled })
 }
 
 export async function updateSettings(req: NextRequest) {
