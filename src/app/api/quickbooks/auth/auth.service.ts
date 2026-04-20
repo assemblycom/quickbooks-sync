@@ -139,8 +139,6 @@ export class AuthService extends BaseService {
         assetAccountRef: insertPayload.assetAccountRef,
         serviceItemRef: existingToken?.serviceItemRef || null,
         clientFeeRef: existingToken?.clientFeeRef || null,
-        undepositedFundsAccountRef:
-          existingToken?.undepositedFundsAccountRef || null,
         bankAccountRef: existingToken?.bankAccountRef || null,
       })
       // handle accounts
@@ -241,7 +239,6 @@ export class AuthService extends BaseService {
       setting,
       serviceItemRef,
       clientFeeRef,
-      undepositedFundsAccountRef,
       bankAccountRef,
       isSuspended,
     } = portalQBToken
@@ -265,7 +262,6 @@ export class AuthService extends BaseService {
       assetAccountRef: '',
       serviceItemRef: '',
       clientFeeRef: '',
-      undepositedFundsAccountRef: null,
       bankAccountRef: null,
     }
 
@@ -288,7 +284,6 @@ export class AuthService extends BaseService {
       assetAccountRef,
       serviceItemRef,
       clientFeeRef,
-      undepositedFundsAccountRef,
       bankAccountRef,
     }
 

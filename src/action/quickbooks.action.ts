@@ -65,7 +65,6 @@ export async function checkForNonUsCompany(portalId: string) {
         assetAccountRef: portalConnection.assetAccountRef,
         serviceItemRef: portalConnection.serviceItemRef,
         clientFeeRef: portalConnection.clientFeeRef,
-        undepositedFundsAccountRef: portalConnection.undepositedFundsAccountRef,
         bankAccountRef: portalConnection.bankAccountRef,
       }
 

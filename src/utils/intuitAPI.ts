@@ -44,7 +44,6 @@ export type IntuitAPITokensType = Pick<
   | 'assetAccountRef'
   | 'serviceItemRef'
   | 'clientFeeRef'
-  | 'undepositedFundsAccountRef'
   | 'bankAccountRef'
 > & { isSuspended?: boolean }
 
@@ -898,6 +897,30 @@ export default class IntuitAPI {
 
     const parsedCompanyInfo = CompanyInfoSchema.parse(companyInfo)
     return parsedCompanyInfo.CompanyInfo[0]
+  }
+
+  /**
+   * Look up the QBO system "Undeposited Funds" account.
+   * Every QBO company has exactly one — it cannot be deleted or recreated.
+   * Queries by AccountSubType first (survives user renames), falls back to name.
+   */
+  async getUndepositedFundsAccountId(): Promise<string> {
+    const result = await this.customQuery(
+      `SELECT Id FROM Account WHERE AccountSubType = 'UndepositedFunds' AND Active = true maxresults 1`,
+    )
+    if (result?.Account?.[0]?.Id) {
+      return result.Account[0].Id
+    }
+
+    const byName = await this.getAnAccount('Undeposited Funds')
+    if (byName?.Id) {
+      return byName.Id
+    }
+
+    throw new APIError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'IntuitAPI#getUndepositedFundsAccountId | Undeposited Funds account not found in QuickBooks',
+    )
   }
 
   private wrapWithRetry<Args extends unknown[], R>(

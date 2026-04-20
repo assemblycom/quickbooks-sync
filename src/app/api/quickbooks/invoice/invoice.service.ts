@@ -897,16 +897,11 @@ export class InvoiceService extends BaseService {
     const useBankDepositFlow =
       setting?.absorbedFeeFlag && setting?.bankDepositFeeFlag
 
+    const intuitApi = new IntuitAPI(qbTokenInfo)
+
     let depositToAccountRef: { value: string } | undefined
     if (useBankDepositFlow) {
-      const tokenService = new TokenService(this.user)
-      const undepositedFundsRef =
-        await tokenService.checkAndUpdateAccountStatus(
-          AccountTypeObj.UndepositedFunds,
-          qbTokenInfo.intuitRealmId,
-          new IntuitAPI(qbTokenInfo),
-          qbTokenInfo.undepositedFundsAccountRef ?? undefined,
-        )
+      const undepositedFundsRef = await intuitApi.getUndepositedFundsAccountId()
       depositToAccountRef = { value: undepositedFundsRef }
     }
 
@@ -930,7 +925,6 @@ export class InvoiceService extends BaseService {
         },
       ],
     }
-    const intuitApi = new IntuitAPI(qbTokenInfo)
     const paymentService = new PaymentService(this.user)
 
     const customerDisplayName =
