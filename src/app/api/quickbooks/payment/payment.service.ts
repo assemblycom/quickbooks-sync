@@ -262,7 +262,7 @@ export class PaymentService extends BaseService {
       await this.logSync(
         opts.paymentId,
         {
-          qbInvoiceId: res.Deposit.Id,
+          qbInvoiceId: res.Deposit?.Id,
           invoiceNumber: opts.invoiceNumber,
         },
         EventType.SUCCEEDED,
