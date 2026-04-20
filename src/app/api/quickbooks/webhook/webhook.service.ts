@@ -435,16 +435,17 @@ export class WebhookService extends BaseService {
         return
       }
 
-      try {
-        const copilotApp = new CopilotAPI(this.user.token)
-        const invoice = await copilotApp.getInvoice(
-          parsedPaymentSucceedResource.data.invoiceId,
+      const copilotApp = new CopilotAPI(this.user.token)
+      const invoice = await copilotApp.getInvoice(
+        parsedPaymentSucceedResource.data.invoiceId,
+      )
+      if (!invoice)
+        throw new APIError(
+          httpStatus.NOT_FOUND,
+          `Invoice not found in Assembly for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
         )
-        if (!invoice)
-          throw new APIError(
-            httpStatus.NOT_FOUND,
-            `Invoice not found for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
-          )
+
+      try {
         validateAccessToken(qbTokenInfo)
         // only track if the fee amount is paid by platform
         const paymentService = new PaymentService(this.user)
@@ -465,6 +466,7 @@ export class WebhookService extends BaseService {
           eventType: EventType.SUCCEEDED,
           status: LogStatus.FAILED,
           copilotId: parsedPaymentSucceedResource.data.id,
+          invoiceNumber: invoice.number,
           feeAmount: feeAmount ? feeAmount.paidByPlatform.toFixed(2) : '0',
           remark: 'Absorbed fees',
           qbItemName: 'Assembly Fees',
