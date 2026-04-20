@@ -561,7 +561,11 @@ export const useInvoiceDetailSettings = () => {
 
   useEffect(() => {
     if (!settingState || !intialSettingState) return
-    setShowButton(!equal(intialSettingState, settingState))
+    const hasChanges = !equal(intialSettingState, settingState)
+    // Block submit if bank deposit is on but no bank account selected
+    const missingBankAccount =
+      settingState.bankDepositFeeFlag && !settingState.bankAccountRef
+    setShowButton(hasChanges && !missingBankAccount)
   }, [settingState, intialSettingState])
 
   useEffect(() => {
