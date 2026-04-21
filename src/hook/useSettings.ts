@@ -536,9 +536,11 @@ export const useInvoiceDetailSettings = () => {
     revalidateOnMount: false,
   })
 
+  const bankDepositEnabled = setting?.bankDepositEnabled ?? false
+
   const { data: bankAccountsData, isLoading: isBankAccountsLoading } =
     useSwrHelper(
-      settingState.bankDepositFeeFlag
+      bankDepositEnabled && settingState.bankDepositFeeFlag
         ? `/api/quickbooks/setting/bank-account?token=${token}`
         : null,
       { suspense: false, revalidateOnMount: true },
@@ -620,6 +622,7 @@ export const useInvoiceDetailSettings = () => {
     error,
     isLoading,
     showButton,
+    bankDepositEnabled,
     bankAccounts,
     isBankAccountsLoading,
     selectBankAccount,

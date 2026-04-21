@@ -32,6 +32,14 @@ export const intuitBaseUrl =
 export const intuitApiMinorVersion =
   process.env.INTUIT_API_MINOR_VERSION || '75'
 
+// AB feature testing
+export const abFeatureTestingPortals = (
+  process.env.AB_FEATURE_TESTING_PORTALS || ''
+)
+  .split(',')
+  .map((id) => id.trim())
+  .filter(Boolean)
+
 // Supabase
 export const supabaseProjectUrl =
   process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL || ''

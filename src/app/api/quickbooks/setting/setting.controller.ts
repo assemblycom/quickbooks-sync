@@ -1,6 +1,8 @@
+import APIError from '@/app/api/core/exceptions/api'
 import authenticate from '@/app/api/core/utils/authenticate'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
 import { TokenService } from '@/app/api/quickbooks/token/token.service'
+import { isPortalInBankDepositABTest } from '@/utils/abTesting'
 import { db } from '@/db'
 import { QBPortalConnection } from '@/db/schema/qbPortalConnections'
 import { QBSetting, QBSettingsUpdateSchemaType } from '@/db/schema/qbSettings'
@@ -42,7 +44,9 @@ export async function getSettings(req: NextRequest) {
     bankAccountRef = portalConnection?.bankAccountRef || null
   }
 
-  return NextResponse.json({ setting, bankAccountRef })
+  const bankDepositEnabled = isPortalInBankDepositABTest(user.workspaceId)
+
+  return NextResponse.json({ setting, bankAccountRef, bankDepositEnabled })
 }
 
 export async function updateSettings(req: NextRequest) {
@@ -55,17 +59,31 @@ export async function updateSettings(req: NextRequest) {
   const parsedType = z.nativeEnum(SettingType).parse(type)
 
   const parsed = SettingRequestSchema.parse(body)
-  const { bankAccountRef, ...settingFields } = parsed
+  const { bankAccountRef, bankDepositFeeFlag, ...settingFields } = parsed
 
+  const isBankDepositAB =
+    parsedType === SettingType.INVOICE &&
+    isPortalInBankDepositABTest(user.workspaceId)
+
+  // Strip bank deposit fields for portals not in the AB test
   const payload = {
     ...settingFields,
+    ...(isBankDepositAB && { bankDepositFeeFlag }),
     ...(parsedType === SettingType.INVOICE
       ? { initialInvoiceSettingMap: true }
       : { initialProductSettingMap: true }),
   }
 
+  // Reject bankDepositFeeFlag:true without a bankAccountRef
+  if (isBankDepositAB && bankDepositFeeFlag && !bankAccountRef) {
+    throw new APIError(
+      httpStatus.BAD_REQUEST,
+      'bankAccountRef is required when bankDepositFeeFlag is enabled',
+    )
+  }
+
   const writeBankAccountRef =
-    parsedType === SettingType.INVOICE && typeof bankAccountRef !== 'undefined'
+    isBankDepositAB && typeof bankAccountRef !== 'undefined'
 
   // Wrap both writes in a transaction to prevent partial state
   // (e.g. bankDepositFeeFlag=true but bankAccountRef=null)

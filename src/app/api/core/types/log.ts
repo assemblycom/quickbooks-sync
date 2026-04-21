@@ -19,7 +19,6 @@ export enum EventType {
   SUCCEEDED = 'succeeded',
   MAPPED = 'mapped',
   UNMAPPED = 'unmapped',
-  DEPOSITED = 'deposited',
 }
 
 /**
