@@ -24,6 +24,8 @@ import { QBPortalConnection } from '@/db/schema/qbPortalConnections'
 import { MAX_ATTEMPTS } from '@/constant/sync'
 import { captureMessage } from '@sentry/nextjs'
 import { AccountTypeObj } from '@/constant/qbConnection'
+import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
+import { isPortalInBankDepositABTest } from '@/utils/abTesting'
 import { ErrorMessageAndCode, getMessageAndCodeFromError } from '@/utils/error'
 import {
   getCategory,
@@ -237,49 +239,43 @@ export class SyncService extends BaseService {
   ) {
     try {
       CustomLogger.info({
-        message: 'syncService#processPaymentSucceededSync | records: ',
+        message: 'SyncService#processPaymentSucceededSync | record: ',
         obj: record,
       })
+
+      const settingService = new SettingService(this.user)
+      const setting = await settingService.getOneByPortalId([
+        'absorbedFeeFlag',
+        'bankDepositFeeFlag',
+      ])
+      const useBankDepositFlow =
+        setting?.absorbedFeeFlag &&
+        setting?.bankDepositFeeFlag &&
+        isPortalInBankDepositABTest(this.user.workspaceId)
+
       const intuitApi = new IntuitAPI(qbTokenInfo)
       const tokenService = new TokenService(this.user)
-      const assetAccountRef = await tokenService.checkAndUpdateAccountStatus(
-        AccountTypeObj.Asset,
-        qbTokenInfo.intuitRealmId,
-        intuitApi,
-        qbTokenInfo.assetAccountRef,
-      )
-      const expenseAccountRef = await tokenService.checkAndUpdateAccountStatus(
-        AccountTypeObj.Expense,
-        qbTokenInfo.intuitRealmId,
-        intuitApi,
-        qbTokenInfo.expenseAccountRef,
-      )
-
-      const expensePayload = {
-        PaymentType: 'Cash' as const,
-        AccountRef: {
-          value: z.string().parse(assetAccountRef),
-        },
-        DocNumber: record.invoiceNumber || '',
-        TxnDate: dayjs(record.createdAt).format('YYYY-MM-DD'), // the date format for due date follows XML Schema standard (YYYY-MM-DD). For more info: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/purchase#the-purchase-object
-        Line: [
-          {
-            DetailType: 'AccountBasedExpenseLineDetail' as const,
-            Amount: parseFloat(z.string().parse(record.feeAmount)) / 100, // fee amount is required for payment/expense creation
-            AccountBasedExpenseLineDetail: {
-              AccountRef: {
-                value: z.string().parse(expenseAccountRef),
-              },
-            },
-          },
-        ],
-      }
       const paymentService = new PaymentService(this.user)
-      await paymentService.createExpenseForAbsorbedFees(
-        expensePayload,
-        intuitApi,
-        record.copilotId,
-      )
+
+      // Deposit retry requires invoiceNumber to look up the PAID sync log.
+      // Fall back to expense retry if invoiceNumber is missing (old logs or early failures).
+      if (useBankDepositFlow && record.invoiceNumber) {
+        await this.processDepositRetry(
+          record,
+          qbTokenInfo,
+          intuitApi,
+          tokenService,
+          paymentService,
+        )
+      } else {
+        await this.processExpenseRetry(
+          record,
+          qbTokenInfo,
+          intuitApi,
+          tokenService,
+          paymentService,
+        )
+      }
     } catch (error: unknown) {
       CustomLogger.error({
         message: 'SyncService#processPaymentSucceededSync',
@@ -290,6 +286,116 @@ export class SyncService extends BaseService {
         getMessageAndCodeFromError(error),
       )
     }
+  }
+
+  private async processExpenseRetry(
+    record: QBSyncLogSelectSchemaType,
+    qbTokenInfo: IntuitAPITokensType,
+    intuitApi: IntuitAPI,
+    tokenService: TokenService,
+    paymentService: PaymentService,
+  ) {
+    const assetAccountRef = await tokenService.checkAndUpdateAccountStatus(
+      AccountTypeObj.Asset,
+      qbTokenInfo.intuitRealmId,
+      intuitApi,
+      qbTokenInfo.assetAccountRef,
+    )
+    const expenseAccountRef = await tokenService.checkAndUpdateAccountStatus(
+      AccountTypeObj.Expense,
+      qbTokenInfo.intuitRealmId,
+      intuitApi,
+      qbTokenInfo.expenseAccountRef,
+    )
+
+    const expensePayload = {
+      PaymentType: 'Cash' as const,
+      AccountRef: {
+        value: z.string().parse(assetAccountRef),
+      },
+      DocNumber: record.invoiceNumber || '',
+      TxnDate: dayjs(record.createdAt).format('YYYY-MM-DD'), // the date format for due date follows XML Schema standard (YYYY-MM-DD). For more info: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/purchase#the-purchase-object
+      Line: [
+        {
+          DetailType: 'AccountBasedExpenseLineDetail' as const,
+          Amount: parseFloat(z.string().parse(record.feeAmount)) / 100, // fee amount is required for payment/expense creation
+          AccountBasedExpenseLineDetail: {
+            AccountRef: {
+              value: z.string().parse(expenseAccountRef),
+            },
+          },
+        },
+      ],
+    }
+    await paymentService.createExpenseForAbsorbedFees(
+      expensePayload,
+      intuitApi,
+      record.copilotId,
+    )
+  }
+
+  private async processDepositRetry(
+    record: QBSyncLogSelectSchemaType,
+    qbTokenInfo: IntuitAPITokensType,
+    intuitApi: IntuitAPI,
+    tokenService: TokenService,
+    paymentService: PaymentService,
+  ) {
+    if (!record.invoiceNumber) {
+      throw new Error(
+        `SyncService#processDepositRetry | invoiceNumber missing on sync log ${record.id}`,
+      )
+    }
+    if (!record.feeAmount) {
+      throw new Error(
+        `SyncService#processDepositRetry | feeAmount missing on sync log ${record.id}`,
+      )
+    }
+
+    // Look up the successful PAID sync log to get the QBO Payment ID and gross amount.
+    // Filter by SUCCESS status so we don't grab an in-flight or failed PAID log whose
+    // quickbooksId may not yet exist in QBO.
+    const paidSyncLog = await this.syncLogService.getOne(
+      and(
+        eq(QBSyncLog.portalId, this.user.workspaceId),
+        eq(QBSyncLog.invoiceNumber, record.invoiceNumber),
+        eq(QBSyncLog.eventType, EventType.PAID),
+        eq(QBSyncLog.entityType, EntityType.INVOICE),
+        eq(QBSyncLog.status, LogStatus.SUCCESS),
+      ) as WhereClause,
+    )
+
+    if (!paidSyncLog?.quickbooksId || !paidSyncLog.amount) {
+      throw new Error(
+        `SyncService#processDepositRetry | PAID sync log not found or missing data for invoice: ${record.invoiceNumber}`,
+      )
+    }
+
+    const expenseAccountRef = await tokenService.checkAndUpdateAccountStatus(
+      AccountTypeObj.Expense,
+      qbTokenInfo.intuitRealmId,
+      intuitApi,
+      qbTokenInfo.expenseAccountRef,
+    )
+
+    const bankAccountRef = qbTokenInfo.bankAccountRef
+    if (!bankAccountRef) {
+      throw new Error(
+        'SyncService#processDepositRetry | bankAccountRef is not configured',
+      )
+    }
+
+    await paymentService.createBankDepositForPayment(intuitApi, {
+      qbPaymentId: paidSyncLog.quickbooksId,
+      grossAmount: Number(paidSyncLog.amount) / 100,
+      feeAmount: Number(record.feeAmount) / 100,
+      bankAccountRef,
+      expenseAccountRef: z.string().parse(expenseAccountRef),
+      // Post the deposit on the payment date (from the PAID log), not the fee-retry date.
+      txnDate: dayjs(paidSyncLog.createdAt).format('YYYY-MM-DD'),
+      invoiceNumber: record.invoiceNumber,
+      paymentId: record.copilotId,
+    })
   }
 
   private async processProductCreate(
