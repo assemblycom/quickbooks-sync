@@ -238,18 +238,6 @@ export default class IntuitAPI {
         'IntuitAPI#getSingleIncomeAccount | Income account not found',
       )
 
-    if (qbIncomeAccountRefInfo?.Fault) {
-      CustomLogger.error({
-        obj: qbIncomeAccountRefInfo.Fault?.Error,
-        message: 'Error: ',
-      })
-      throw new APIError(
-        qbIncomeAccountRefInfo.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getSingleIncomeAccount`,
-        qbIncomeAccountRefInfo.Fault?.Error,
-      )
-    }
-
     return qbIncomeAccountRefInfo.Account?.[0]
   }
 
@@ -299,15 +287,6 @@ export default class IntuitAPI {
 
     if (!qbCustomers) return null
 
-    if (qbCustomers?.Fault) {
-      CustomLogger.error({ obj: qbCustomers.Fault?.Error, message: 'Error: ' })
-      throw new APIError(
-        qbCustomers.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getACustomer`,
-        qbCustomers.Fault?.Error,
-      )
-    }
-
     if (!qbCustomers.Customer) return
     return CustomerQueryResponseSchema.parse(qbCustomers.Customer[0])
   }
@@ -323,15 +302,6 @@ export default class IntuitAPI {
     const qbCustomers = await this.customQuery(customerQuery)
 
     if (!qbCustomers) return
-
-    if (qbCustomers?.Fault) {
-      CustomLogger.error({ obj: qbCustomers.Fault?.Error, message: 'Error: ' })
-      throw new APIError(
-        qbCustomers.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getCustomerByEmail`,
-        qbCustomers.Fault?.Error,
-      )
-    }
 
     if (!qbCustomers.Customer) return
     return CustomerQueryResponseSchema.parse(qbCustomers.Customer[0])
@@ -410,15 +380,6 @@ export default class IntuitAPI {
 
     if (!qbItem) return null
 
-    if (qbItem?.Fault) {
-      CustomLogger.error({ obj: qbItem.Fault?.Error, message: 'Error: ' })
-      throw new APIError(
-        qbItem.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getAnItem`,
-        qbItem.Fault?.Error,
-      )
-    }
-
     return qbItem.Item?.[0]
   }
 
@@ -435,15 +396,6 @@ export default class IntuitAPI {
     const qbItems = await this.customQuery(customerQuery)
 
     if (!qbItems) return null
-
-    if (qbItems?.Fault) {
-      CustomLogger.error({ obj: qbItems.Fault?.Error, message: 'Error: ' })
-      throw new APIError(
-        qbItems.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getAllItems`,
-        qbItems.Fault?.Error,
-      )
-    }
 
     return QBItemsResponseSchema.parse(qbItems.Item || [])
   }
@@ -622,15 +574,6 @@ export default class IntuitAPI {
         'IntuitAPI#getInvoice | message = no response',
       )
 
-    if (invoice?.Fault) {
-      CustomLogger.error({ obj: invoice.Fault?.Error, message: 'Error: ' })
-      throw new APIError(
-        invoice.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getInvoice`,
-        invoice.Fault?.Error,
-      )
-    }
-
     if (!invoice.Invoice) return null
 
     CustomLogger.info({
@@ -771,15 +714,6 @@ export default class IntuitAPI {
 
     if (!customQuery) return null
 
-    if (customQuery?.Fault) {
-      CustomLogger.error({ obj: customQuery.Fault?.Error, message: 'Error: ' })
-      throw new APIError(
-        customQuery.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getAnAccount`,
-        customQuery.Fault?.Error,
-      )
-    }
-
     return customQuery.Account?.[0]
   }
 
@@ -886,15 +820,6 @@ export default class IntuitAPI {
         'No company info found',
         true,
       )
-
-    if (companyInfo.Fault) {
-      CustomLogger.error({ obj: companyInfo.Fault?.Error, message: 'Error: ' })
-      throw new APIError(
-        companyInfo.Fault?.Error?.code || httpStatus.BAD_REQUEST,
-        `${IntuitAPIErrorMessage}getCompanyInfo`,
-        companyInfo.Fault?.Error,
-      )
-    }
 
     const parsedCompanyInfo = CompanyInfoSchema.parse(companyInfo)
     return parsedCompanyInfo.CompanyInfo[0]
