@@ -22,6 +22,10 @@ export interface PriceCreatedTestHandle {
  * The `optsFactory` is invoked once per test so callers can supply overrides
  * whose underlying `vi.fn()`s are freshly instantiated — a static opts object
  * would be broken by the `vi.clearAllMocks()` call in afterEach.
+ *
+ * IMPORTANT: `handle.copilot` and `handle.intuit` are only defined inside
+ * `it` / `test` callbacks (after `beforeEach` has run). Accessing them at
+ * `describe`-scope will yield `undefined` at runtime.
  */
 export function setupPriceCreatedTest(
   optsFactory?: () => InstallOpts,

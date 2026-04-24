@@ -12,7 +12,7 @@ export async function postWebhook(
   opts: { token?: string } = {},
 ): Promise<Response> {
   const token = opts.token ?? TEST_WEBHOOK_TOKEN
-  let response!: Response
+  let response: Response | undefined
   await testApiHandler({
     appHandler,
     url: `/api/quickbooks/webhook?token=${token}`,
@@ -24,5 +24,10 @@ export async function postWebhook(
       })
     },
   })
+  if (!response) {
+    throw new Error(
+      'postWebhook: testApiHandler did not invoke the test callback',
+    )
+  }
   return response
 }
