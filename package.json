@@ -22,9 +22,10 @@
     "cmd:backfill-product-info": "tsx src/cmd/backfillProductInfo/index.ts",
     "cmd:sync-missed-invoices": "tsx src/cmd/syncMissedInvoices/index.ts",
     "cmd:sync-missed-products": "tsx src/cmd/syncMissedProducts/index.ts",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project integration",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --project unit --project integration --coverage",
+    "test:smoke": "vitest run --project smoke"
   },
   "dependencies": {
     "@sentry/nextjs": "^9.13.0",

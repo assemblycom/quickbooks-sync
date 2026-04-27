@@ -1,0 +1,44 @@
+name: Nightly QB smoke
+
+on:
+  schedule:
+    # 06:00 UTC every 2 days (day-of-month 1, 3, 5, ..., 31)
+    - cron: '0 6 */2 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Run smoke against QB sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: yarn
+          cache-dependency-path: './yarn.lock'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run smoke tests
+        run: yarn test:smoke
+        env:
+          INTUIT_ENVIRONMENT: sandbox
+          INTUIT_CLIENT_ID: ${{ secrets.INTUIT_SMOKE_CLIENT_ID }}
+          INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_SMOKE_CLIENT_SECRET }}
+          INTUIT_SMOKE_REALM_ID: ${{ secrets.INTUIT_SMOKE_REALM_ID }}
+          INTUIT_SMOKE_REFRESH_TOKEN: ${{ secrets.INTUIT_SMOKE_REFRESH_TOKEN }}
+          INTUIT_SMOKE_INCOME_ACCOUNT_REF: ${{ secrets.INTUIT_SMOKE_INCOME_ACCOUNT_REF }}
+          INTUIT_SMOKE_ASSET_ACCOUNT_REF: ${{ secrets.INTUIT_SMOKE_ASSET_ACCOUNT_REF }}
+          INTUIT_SMOKE_EXPENSE_ACCOUNT_REF: ${{ secrets.INTUIT_SMOKE_EXPENSE_ACCOUNT_REF }}
+          COPILOT_API_KEY: ${{ secrets.COPILOT_SMOKE_API_KEY }}

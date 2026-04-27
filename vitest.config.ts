@@ -56,6 +56,27 @@ export default defineConfig({
           },
         },
       },
+      {
+        resolve: {
+          tsconfigPaths: true,
+        },
+        test: {
+          name: 'smoke',
+          environment: 'node',
+          include: ['test/smoke/**/*.smoke.test.ts'],
+          globalSetup: ['./test/smoke/globalSetup.ts'],
+          setupFiles: ['./test/smoke/setup.ts'],
+          // Real Intuit OAuth refresh + QB API calls routinely take 10-30s.
+          testTimeout: 120_000,
+          hookTimeout: 180_000,
+          pool: 'forks',
+          fileParallelism: false,
+          isolate: false,
+          sequence: {
+            groupOrder: 2,
+          },
+        },
+      },
     ],
   },
 })
