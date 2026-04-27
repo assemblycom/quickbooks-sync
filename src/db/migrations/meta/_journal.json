@@ -120,6 +120,13 @@
       "when": 1777269232971,
       "tag": "20260427055352_add_unique_index_with_portal_id_and_invoice_number_in_qb_invoice_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777277873164,
+      "tag": "20260427081753_update_log_status_enum_with_pending_values",
+      "breakpoints": true
     }
   ]
 }
