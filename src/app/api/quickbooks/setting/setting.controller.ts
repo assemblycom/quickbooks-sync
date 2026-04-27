@@ -1,6 +1,6 @@
 import authenticate from '@/app/api/core/utils/authenticate'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
-import { QBSetting, QBSettingsUpdateSchemaType } from '@/db/schema/qbSettings'
+import { QBSetting } from '@/db/schema/qbSettings'
 import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
