@@ -113,6 +113,13 @@
       "when": 1776326817946,
       "tag": "20260416080657_update_service_name_length_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1777269232971,
+      "tag": "20260427055352_add_unique_index_with_portal_id_and_invoice_number_in_qb_invoice_sync",
+      "breakpoints": true
     }
   ]
 }
