@@ -136,6 +136,7 @@ export class WebhookService extends BaseService {
       amount: total?.toFixed(2),
       invoiceNumber,
       errorMessage,
+      errorCode: error?.code?.toString(),
       deletedAt: getDeletedAtForAuthAccountCategoryLog(error),
       category: getCategory(error),
     })
@@ -354,6 +355,7 @@ export class WebhookService extends BaseService {
         invoiceNumber: parsedPaidInvoiceResource.data.number,
         amount: parsedPaidInvoiceResource.data.total.toFixed(2),
         errorMessage,
+        errorCode: errorWithCode.code?.toString(),
         deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
         category: getCategory(errorWithCode),
       })
@@ -399,6 +401,7 @@ export class WebhookService extends BaseService {
         copilotId: parsedProductResource.data.id,
         productName: parsedProductResource.data.name,
         errorMessage,
+        errorCode: errorWithCode.code?.toString(),
         deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
         category: getCategory(errorWithCode),
       })
@@ -454,6 +457,7 @@ export class WebhookService extends BaseService {
           productPrice: priceResource.amount?.toFixed(2),
           copilotPriceId: priceResource.id,
           errorMessage,
+          errorCode: errorWithCode.code?.toString(),
           deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
           category: getCategory(errorWithCode),
         },
@@ -546,6 +550,7 @@ export class WebhookService extends BaseService {
           remark: 'Absorbed fees',
           qbItemName: 'Assembly Fees',
           errorMessage,
+          errorCode: errorWithCode.code?.toString(),
           deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
           category: getCategory(errorWithCode),
         })

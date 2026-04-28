@@ -631,6 +631,7 @@ export class SyncService extends BaseService {
       {
         status: LogStatus.FAILED,
         errorMessage,
+        errorCode: error?.code?.toString(),
         deletedAt: getDeletedAtForAuthAccountCategoryLog(error),
         category: getCategory(error),
       },
