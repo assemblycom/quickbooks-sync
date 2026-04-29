@@ -134,6 +134,13 @@
       "when": 1777284208082,
       "tag": "20260427100328_add_unique_indexes_in_qb_sync_logs_table",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1777363940740,
+      "tag": "20260428081220_add_error_codes_in_qb_sync_logs",
+      "breakpoints": true
     }
   ]
 }
