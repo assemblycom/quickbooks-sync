@@ -174,11 +174,12 @@ export default class IntuitAPI {
       )
     }
 
+    const parsedCustomer = CustomerQueryResponseSchema.parse(customer.Customer)
     CustomLogger.info({
-      obj: { response: customer.Customer },
-      message: `IntuitAPI#createCustomer | customer created with name = ${customer.Customer?.FullyQualifiedName}.`,
+      obj: { response: parsedCustomer },
+      message: `IntuitAPI#createCustomer | customer created with name = ${parsedCustomer.FullyQualifiedName ?? ''}.`,
     })
-    return customer.Customer
+    return parsedCustomer
   }
 
   async _createItem(payload: QBItemCreatePayloadType): Promise<QBItemRowType> {
@@ -488,11 +489,12 @@ export default class IntuitAPI {
       )
     }
 
+    const parsedCustomer = CustomerQueryResponseSchema.parse(customer.Customer)
     CustomLogger.info({
-      obj: { response: customer.Customer },
-      message: `IntuitAPI#customerSparseUpdate | customer sparse updated with name = ${customer.Customer?.FullyQualifiedName}. `,
+      obj: { response: parsedCustomer },
+      message: `IntuitAPI#customerSparseUpdate | customer sparse updated with name = ${parsedCustomer.FullyQualifiedName ?? ''}. `,
     })
-    return customer.Customer
+    return parsedCustomer
   }
 
   async _itemFullUpdate(
