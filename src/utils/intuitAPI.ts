@@ -268,7 +268,7 @@ export default class IntuitAPI {
     CustomLogger.info({
       message: `IntuitAPI#getSingleIncomeAccount | Income account query start for realmId: ${this.tokens.intuitRealmId}`,
     })
-    const sqlQuery = `SELECT Id FROM Account WHERE AccountType = 'Income' AND AccountSubType = 'SalesOfProductIncome' AND Active = true maxresults 1`
+    const sqlQuery = `SELECT Id, Name, SyncToken, Active FROM Account WHERE AccountType = 'Income' AND AccountSubType = 'SalesOfProductIncome' AND Active = true maxresults 1`
     const qbIncomeAccountRefInfo = await this.customQuery(sqlQuery)
 
     if (!qbIncomeAccountRefInfo)
@@ -504,7 +504,7 @@ export default class IntuitAPI {
 
   async _getAllItems(
     limit: number,
-    columns: string[] = ['Id'],
+    columns: string[],
   ): Promise<QBItemsResponseType | null> {
     CustomLogger.info({
       message: `IntuitAPI#getAllItems | Item query start for realmId: ${this.tokens.intuitRealmId}`,
