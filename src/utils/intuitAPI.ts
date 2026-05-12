@@ -43,6 +43,7 @@ import {
   QBPurchaseDeleteResponseType,
   QBPurchaseDeleteResponseSchema,
   SingleIdAndTokenResponseSchema,
+  SingleIdAndTokenResponseType,
 } from '@/type/dto/intuitAPI.dto'
 import { escapeForQBQuery, getNameAsCustomer } from '@/utils/string'
 import CustomLogger from '@/utils/logger'
@@ -131,7 +132,9 @@ export default class IntuitAPI {
     return res.QueryResponse
   }
 
-  async _createInvoice(payload: QBInvoiceCreatePayloadType) {
+  async _createInvoice(
+    payload: QBInvoiceCreatePayloadType,
+  ): Promise<QBInvoiceResponseType> {
     CustomLogger.info({
       obj: { payload },
       message: `IntuitAPI#createInvoice | invoice creation start for realmId: ${this.tokens.intuitRealmId}.`,
@@ -148,11 +151,12 @@ export default class IntuitAPI {
       )
     }
 
+    const parsed = QBInvoiceResponseSchema.parse(invoice)
     CustomLogger.info({
-      obj: { response: invoice.Invoice },
-      message: `IntuitAPI#createInvoice | invoice created with doc number = ${invoice.Invoice?.DocNumber}.`,
+      obj: { response: parsed.Invoice },
+      message: `IntuitAPI#createInvoice | invoice created with doc number = ${parsed.Invoice?.DocNumber ?? ''}.`,
     })
-    return invoice
+    return parsed
   }
 
   async _createCustomer(
@@ -446,7 +450,9 @@ export default class IntuitAPI {
     return QBItemsResponseSchema.parse(qbItems.Item || [])
   }
 
-  async _invoiceSparseUpdate(payload: QBInvoiceSparseUpdatePayloadType) {
+  async _invoiceSparseUpdate(
+    payload: QBInvoiceSparseUpdatePayloadType,
+  ): Promise<QBInvoiceResponseType> {
     CustomLogger.info({
       obj: { payload },
       message: `IntuitAPI#InvoiceSparseUpdate | invoice sparse update start for realmId: ${this.tokens.intuitRealmId}. `,
@@ -463,11 +469,12 @@ export default class IntuitAPI {
       )
     }
 
+    const parsed = QBInvoiceResponseSchema.parse(invoice)
     CustomLogger.info({
-      obj: { response: invoice.Invoice },
-      message: `IntuitAPI#InvoiceSparseUpdate | invoice sparse updated for doc number = ${invoice.Invoice?.DocNumber}.`,
+      obj: { response: parsed.Invoice },
+      message: `IntuitAPI#InvoiceSparseUpdate | invoice sparse updated for doc number = ${parsed.Invoice?.DocNumber ?? ''}.`,
     })
-    return invoice
+    return parsed
   }
 
   async _customerSparseUpdate(
@@ -577,7 +584,9 @@ export default class IntuitAPI {
     return payment
   }
 
-  async _getInvoice(invoiceNumber: string) {
+  async _getInvoice(
+    invoiceNumber: string,
+  ): Promise<SingleIdAndTokenResponseType | null> {
     CustomLogger.info({
       obj: { invoiceNumber },
       message: `IntuitAPI#getInvoice | invoice query start for realmId: ${this.tokens.intuitRealmId}. `,
@@ -594,7 +603,9 @@ export default class IntuitAPI {
     return SingleIdAndTokenResponseSchema.parse(invoice.Invoice[0])
   }
 
-  async _voidInvoice(payload: QBDestructiveInvoicePayloadSchema) {
+  async _voidInvoice(
+    payload: QBDestructiveInvoicePayloadSchema,
+  ): Promise<QBInvoiceResponseType> {
     CustomLogger.info({
       obj: { payload },
       message: `IntuitAPI#voidInvoice | invoice void start for realmId: ${this.tokens.intuitRealmId}. `,
@@ -611,14 +622,17 @@ export default class IntuitAPI {
       )
     }
 
+    const parsed = QBInvoiceResponseSchema.parse(invoice)
     CustomLogger.info({
-      obj: { response: invoice.Invoice },
-      message: `IntuitAPI#voidInvoice | Voided invoice with Id = ${invoice.Invoice?.Id}.`,
+      obj: { response: parsed.Invoice },
+      message: `IntuitAPI#voidInvoice | Voided invoice with Id = ${parsed.Invoice.Id}.`,
     })
-    return invoice
+    return parsed
   }
 
-  async _deleteInvoice(payload: QBDestructiveInvoicePayloadSchema) {
+  async _deleteInvoice(
+    payload: QBDestructiveInvoicePayloadSchema,
+  ): Promise<QBInvoiceDeleteResponseType> {
     CustomLogger.info({
       obj: { payload },
       message: `IntuitAPI#deleteInvoice | invoice deletion start for realmId: ${this.tokens.intuitRealmId}. `,
@@ -635,11 +649,12 @@ export default class IntuitAPI {
       )
     }
 
+    const parsed = QBInvoiceDeleteResponseSchema.parse(invoice)
     CustomLogger.info({
-      obj: { response: invoice.Invoice },
-      message: `IntuitAPI#deleteInvoice | Deleted invoice with id = ${invoice.Invoice?.Id}. `,
+      obj: { response: parsed.Invoice },
+      message: `IntuitAPI#deleteInvoice | Deleted invoice with id = ${parsed.Invoice.Id}. `,
     })
-    return invoice
+    return parsed
   }
 
   async _deletePayment(payload: QBDeletePayloadType) {
