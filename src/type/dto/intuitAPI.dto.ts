@@ -377,3 +377,6 @@ export const SingleIdAndTokenResponseSchema = z.object({
   Id: z.string(),
   SyncToken: z.string(),
 })
+export type SingleIdAndTokenResponseType = z.infer<
+  typeof SingleIdAndTokenResponseSchema
+>
