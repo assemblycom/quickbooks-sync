@@ -521,14 +521,23 @@ export class WebhookService extends BaseService {
         )
 
       try {
+        const invService = new InvoiceService(this.user)
+        const invoiceSync = await invService.getInvoiceByNumber(invoice.number)
+        if (!invoiceSync) {
+          throw new APIError(
+            httpStatus.NOT_FOUND,
+            `No invoice found in invoice sync table for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
+          )
+        }
         validateAccessToken(qbTokenInfo)
         // only track if the fee amount is paid by platform
         const paymentService = new PaymentService(this.user)
-        await paymentService.webhookPaymentSucceeded(
+        await paymentService.webhookPaymentSucceeded({
           parsedPaymentSucceedResource,
           qbTokenInfo,
-          invoice,
-        )
+          qbDocNumber: invoiceSync.qbDocNumber ?? invoice.number,
+          invoiceNumber: invoice.number,
+        })
       } catch (error: unknown) {
         CustomLogger.error({ message: 'Webhook handler failed', obj: error })
         const errorWithCode = getMessageAndCodeFromError(error)
