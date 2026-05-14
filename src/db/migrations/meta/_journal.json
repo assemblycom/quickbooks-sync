@@ -141,6 +141,13 @@
       "when": 1778740523746,
       "tag": "20260514063523_add_oneshot_unique_partial_index_in_qb_sync_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1778752426056,
+      "tag": "20260514095346_add_qb_doc_number_column_in_qb_invoice_sync",
+      "breakpoints": true
     }
   ]
 }
