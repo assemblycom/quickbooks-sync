@@ -27,7 +27,6 @@ import {
   CompanyInfoType,
   CompanyInfoSchema,
   CustomerQueryResponseType,
-  CustomerQueryResponseSchema,
   QBCustomerResponseSchema,
   QBItemsResponseSchema,
   QBItemsResponseType,
@@ -46,6 +45,7 @@ import {
   SingleIdAndTokenResponseSchema,
   SingleIdAndTokenResponseType,
   QBInvoiceQueryResponseSchema,
+  QBInvoiceRowType,
   CustomerListEnvelopeSchema,
   QBFaultSchema,
 } from '@/type/dto/intuitAPI.dto'
@@ -84,6 +84,47 @@ export function assertNotQBFault(raw: unknown, opName: string): void {
       : httpStatus.BAD_REQUEST
   throw new APIError(code, `${IntuitAPIErrorMessage}${opName}`, errors)
 }
+
+// SELECT projection for each read entity. `satisfies` binds the constant to
+// the row schema's keys — a typo or stale field name fails tsc. Keep in
+// sync with the row schemas in src/type/dto/intuitAPI.dto.ts.
+export const QB_INVOICE_COLUMNS = [
+  'Id',
+  'SyncToken',
+  'DocNumber',
+  'Balance',
+  'TotalAmt',
+  'TxnDate',
+  'DueDate',
+  'PrivateNote',
+  'CustomerRef',
+] as const satisfies ReadonlyArray<keyof QBInvoiceRowType>
+
+export const QB_ITEM_COLUMNS = [
+  'Id',
+  'SyncToken',
+  'Name',
+  'ClassRef',
+  'Active',
+  'UnitPrice',
+  'Description',
+] as const satisfies ReadonlyArray<keyof QBItemRowType>
+
+export const QB_CUSTOMER_COLUMNS = [
+  'Id',
+  'SyncToken',
+  'Active',
+  'CompanyName',
+  'FullyQualifiedName',
+  'PrimaryEmailAddr',
+] as const satisfies ReadonlyArray<keyof CustomerQueryResponseType>
+
+export const QB_ACCOUNT_COLUMNS = [
+  'Id',
+  'Name',
+  'SyncToken',
+  'Active',
+] as const satisfies ReadonlyArray<keyof QBAccountRowType>
 
 type GetACustomerOverloads = {
   (
@@ -283,7 +324,7 @@ export default class IntuitAPI {
     CustomLogger.info({
       message: `IntuitAPI#getSingleIncomeAccount | Income account query start for realmId: ${this.tokens.intuitRealmId}`,
     })
-    const sqlQuery = `SELECT Id, Name, SyncToken, Active FROM Account WHERE AccountType = 'Income' AND AccountSubType = 'SalesOfProductIncome' AND Active = true maxresults 1`
+    const sqlQuery = `select ${QB_ACCOUNT_COLUMNS.join(', ')} from Account where AccountType = 'Income' AND AccountSubType = 'SalesOfProductIncome' AND Active = true maxresults 1`
     const qbIncomeAccountRefInfo = await this.customQuery(sqlQuery)
 
     if (!qbIncomeAccountRefInfo)
@@ -337,7 +378,7 @@ export default class IntuitAPI {
     CustomLogger.info({
       message: `IntuitAPI#getACustomer | Customer query start for realmId: ${this.tokens.intuitRealmId}. Name: ${displayName}, Id: ${id}`,
     })
-    const customerQuery = `SELECT Id, SyncToken, Active, CompanyName, PrimaryEmailAddr FROM Customer WHERE ${queryCondition}`
+    const customerQuery = `select ${QB_CUSTOMER_COLUMNS.join(', ')} from Customer where ${queryCondition}`
     const qbCustomers = await this.customQuery(customerQuery)
 
     if (!qbCustomers) return null
@@ -368,7 +409,7 @@ export default class IntuitAPI {
     let startPosition = 1
 
     while (true) {
-      const customerQuery = `SELECT Id, SyncToken, Active, CompanyName, PrimaryEmailAddr FROM Customer WHERE Active IN (true, false) ORDERBY Id ASC STARTPOSITION ${startPosition} MAXRESULTS ${pageSize}`
+      const customerQuery = `select ${QB_CUSTOMER_COLUMNS.join(', ')} from Customer where Active IN (true, false) ORDERBY Id ASC STARTPOSITION ${startPosition} MAXRESULTS ${pageSize}`
       const qbCustomers = await this.customQuery(customerQuery)
       const envelope = CustomerListEnvelopeSchema.parse(qbCustomers ?? {})
       const customers = envelope.Customer ?? []
@@ -508,7 +549,7 @@ export default class IntuitAPI {
     CustomLogger.info({
       message: `IntuitAPI#getAnItem | Item query start for realmId: ${this.tokens.intuitRealmId}. Condition: ${queryCondition}`,
     })
-    const customerQuery = `select Id, SyncToken, ClassRef, Active, Name, UnitPrice from Item where ${queryCondition} maxresults 1`
+    const customerQuery = `select ${QB_ITEM_COLUMNS.join(', ')} from Item where ${queryCondition} maxresults 1`
     const qbItem = await this.customQuery(customerQuery)
 
     if (!qbItem) return null
@@ -521,9 +562,8 @@ export default class IntuitAPI {
     CustomLogger.info({
       message: `IntuitAPI#getAllItems | Item query start for realmId: ${this.tokens.intuitRealmId}`,
     })
-    // Columns are fixed to match QBItemsResponseSchema; callers don't need
-    // to know the projection. Service items only.
-    const customerQuery = `select Id, Name, UnitPrice, Description, SyncToken from Item where Type = 'Service' maxresults ${limit}`
+    // Service items only.
+    const customerQuery = `select ${QB_ITEM_COLUMNS.join(', ')} from Item where Type = 'Service' maxresults ${limit}`
     CustomLogger.info({
       obj: { customerQuery },
       message: 'IntuitAPI#getAllItems',
@@ -675,7 +715,7 @@ export default class IntuitAPI {
       obj: { invoiceNumber },
       message: `IntuitAPI#getInvoice | invoice query start for realmId: ${this.tokens.intuitRealmId}. `,
     })
-    const query = `select Id, SyncToken, DocNumber from Invoice where DocNumber = '${escapeForQBQuery(invoiceNumber)}' maxresults 1`
+    const query = `select ${QB_INVOICE_COLUMNS.join(', ')} from Invoice where DocNumber = '${escapeForQBQuery(invoiceNumber)}' maxresults 1`
     const invoice = await this.customQuery(query)
 
     if (!invoice)
@@ -699,16 +739,18 @@ export default class IntuitAPI {
    * findNextAvailableDocNumber to detect collisions and pick the next free
    * suffix before createInvoice. Caps at maxresults=100; if a single prefix
    * has more matches, the caller falls back to catch-6240 retry semantics.
+   * SyncToken is included so a caller can void/delete a duplicate without a
+   * second lookup.
    */
   async _findInvoicesByDocNumberPrefix(
     prefix: string,
-  ): Promise<Array<{ Id: string; DocNumber: string }>> {
+  ): Promise<Array<{ Id: string; DocNumber: string; SyncToken: string }>> {
     // LIKE-wildcard chars in user input would broaden the match. Assembly
     // invoice numbers don't contain '%' or '_', but escape defensively.
     const escapedPrefix = escapeForQBQuery(prefix)
       .replace(/%/g, '\\%')
       .replace(/_/g, '\\_')
-    const query = `select Id, SyncToken, DocNumber from Invoice where DocNumber LIKE '${escapedPrefix}%' maxresults 100`
+    const query = `select ${QB_INVOICE_COLUMNS.join(', ')} from Invoice where DocNumber LIKE '${escapedPrefix}%' maxresults 100`
     const response = await this.customQuery(query)
     if (!response) {
       throw new APIError(
@@ -721,6 +763,7 @@ export default class IntuitAPI {
     return envelope.Invoice.map((inv) => ({
       Id: inv.Id,
       DocNumber: inv.DocNumber ?? '',
+      SyncToken: inv.SyncToken,
     }))
   }
 
@@ -838,7 +881,7 @@ export default class IntuitAPI {
       : `Id = '${id}'`
     queryCondition = `${queryCondition} AND Active IN (true${includeInactive ? ', false' : ''})` // By default, QB returns only active items.
 
-    const query = `SELECT Id, SyncToken, Active, Name FROM Account where ${queryCondition}`
+    const query = `select ${QB_ACCOUNT_COLUMNS.join(', ')} from Account where ${queryCondition}`
     const customQueryRes = await this.customQuery(query)
 
     if (!customQueryRes) return null
