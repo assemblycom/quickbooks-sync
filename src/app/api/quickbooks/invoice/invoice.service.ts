@@ -1216,7 +1216,7 @@ export class InvoiceService extends BaseService {
       console.error(
         'InvoiceService#handleInvoiceDeleted | Invoices delete was requested for non-voided record',
       )
-      return // return early if invoice is not voided
+      throw new Error('Invoices delete was requested for non-voided record')
     }
 
     // get invoice sync log
