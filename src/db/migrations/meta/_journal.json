@@ -148,6 +148,13 @@
       "when": 1778752426056,
       "tag": "20260514095346_add_qb_doc_number_column_in_qb_invoice_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779179988077,
+      "tag": "20260519083948_add_error_code_in_qb_sync_logs",
+      "breakpoints": true
     }
   ]
 }
