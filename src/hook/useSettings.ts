@@ -595,7 +595,7 @@ export const useOtherSettings = () => {
     OtherSettingsState | undefined
   >()
 
-  const { data, error, isLoading } = useSwrHelper(
+  const { data, error, isLoading } = useSwrHelper<AccountsListResponseUi>(
     isDisconnected ? null : `/api/quickbooks/accounts?token=${token}`,
     // Override the shared suspense default: keep loading/error state inline
     // to this accordion section so the dashboard doesn't fall back to the
@@ -652,7 +652,7 @@ export const useOtherSettings = () => {
   }
 
   return {
-    options: data?.options as AccountsListResponseUi['options'] | undefined,
+    options: data?.options,
     settingState,
     changeSettings,
     submitOtherSettings,
