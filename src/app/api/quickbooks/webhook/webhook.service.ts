@@ -25,10 +25,7 @@ import { ErrorMessageAndCode, getMessageAndCodeFromError } from '@/utils/error'
 import { IntuitAPITokensType } from '@/utils/intuitAPI'
 import CustomLogger from '@/utils/logger'
 import { sleep } from '@/utils/sleep'
-import {
-  getDeletedAtForAuthAccountCategoryLog,
-  getCategory,
-} from '@/utils/synclog'
+import { getCategory, getShouldRetryForCategory } from '@/utils/synclog'
 import { addSyncBreadcrumb } from '@/utils/sentry'
 import { and, eq } from 'drizzle-orm'
 import httpStatus from 'http-status'
@@ -137,7 +134,7 @@ export class WebhookService extends BaseService {
       invoiceNumber,
       errorMessage,
       errorCode: error?.code?.toString(),
-      deletedAt: getDeletedAtForAuthAccountCategoryLog(error),
+      shouldRetry: getShouldRetryForCategory(error),
       category: getCategory(error),
     })
   }
@@ -356,7 +353,7 @@ export class WebhookService extends BaseService {
         amount: parsedPaidInvoiceResource.data.total.toFixed(2),
         errorMessage,
         errorCode: errorWithCode.code?.toString(),
-        deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
+        shouldRetry: getShouldRetryForCategory(errorWithCode),
         category: getCategory(errorWithCode),
       })
       console.error(
@@ -402,7 +399,7 @@ export class WebhookService extends BaseService {
         productName: parsedProductResource.data.name,
         errorMessage,
         errorCode: errorWithCode.code?.toString(),
-        deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
+        shouldRetry: getShouldRetryForCategory(errorWithCode),
         category: getCategory(errorWithCode),
       })
       console.error(
@@ -458,7 +455,7 @@ export class WebhookService extends BaseService {
           copilotPriceId: priceResource.id,
           errorMessage,
           errorCode: errorWithCode.code?.toString(),
-          deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
+          shouldRetry: getShouldRetryForCategory(errorWithCode),
           category: getCategory(errorWithCode),
         },
         conditions,
@@ -525,6 +522,7 @@ export class WebhookService extends BaseService {
         )
 
       try {
+        validateAccessToken(qbTokenInfo)
         const invService = new InvoiceService(this.user)
         const invoiceSync = await invService.getInvoiceByNumber(invoice.number)
         if (!invoiceSync) {
@@ -533,7 +531,6 @@ export class WebhookService extends BaseService {
             `No invoice found in invoice sync table for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
           )
         }
-        validateAccessToken(qbTokenInfo)
         // only track if the fee amount is paid by platform
         const paymentService = new PaymentService(this.user)
         await paymentService.webhookPaymentSucceeded({
@@ -560,7 +557,7 @@ export class WebhookService extends BaseService {
           qbItemName: 'Assembly Fees',
           errorMessage,
           errorCode: errorWithCode.code?.toString(),
-          deletedAt: getDeletedAtForAuthAccountCategoryLog(errorWithCode),
+          shouldRetry: getShouldRetryForCategory(errorWithCode),
           category: getCategory(errorWithCode),
         })
         console.error(
