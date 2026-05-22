@@ -565,7 +565,7 @@ export const useInvoiceDetailSettings = () => {
   }
 }
 
-export type OtherSettingsState = {
+export type AccountMappingState = {
   incomeAccountRef: string
   expenseAccountRef: string
   assetAccountRef: string
@@ -577,22 +577,22 @@ export type AccountsListResponseUi = {
     expense: AccountOption[]
     asset: AccountOption[]
   }
-  selected: OtherSettingsState
+  selected: AccountMappingState
 }
 
-export const useOtherSettings = () => {
+export const useAccountMapping = () => {
   const { token, syncFlag, portalConnectionStatus } = useApp()
   // Skip the /accounts fetch when QB isn't connected or sync is off — the
   // endpoint requires a live portal connection and would 404 otherwise.
   const isDisconnected = !syncFlag || !portalConnectionStatus
-  const [settingState, setSettingState] = useState<OtherSettingsState>({
+  const [settingState, setSettingState] = useState<AccountMappingState>({
     incomeAccountRef: '',
     expenseAccountRef: '',
     assetAccountRef: '',
   })
   const [showButton, setShowButton] = useState(false)
   const [initialState, setInitialState] = useState<
-    OtherSettingsState | undefined
+    AccountMappingState | undefined
   >()
 
   const { data, error, isLoading } = useSwrHelper<AccountsListResponseUi>(
@@ -615,16 +615,16 @@ export const useOtherSettings = () => {
     setShowButton(!equal(initialState, settingState))
   }, [settingState, initialState])
 
-  const changeSettings = (field: keyof OtherSettingsState, value: string) => {
+  const changeSettings = (field: keyof AccountMappingState, value: string) => {
     setSettingState((prev) => ({ ...prev, [field]: value }))
   }
 
-  const submitOtherSettings = async () => {
+  const submitAccountMapping = async () => {
     if (!initialState) return
     setShowButton(false)
     try {
       // Send only changed fields to keep the PATCH minimal.
-      const payload: Partial<OtherSettingsState> = {}
+      const payload: Partial<AccountMappingState> = {}
       if (settingState.incomeAccountRef !== initialState.incomeAccountRef)
         payload.incomeAccountRef = settingState.incomeAccountRef
       if (settingState.expenseAccountRef !== initialState.expenseAccountRef)
@@ -642,11 +642,11 @@ export const useOtherSettings = () => {
       setInitialState(structuredClone(settingState))
     } catch (err) {
       setShowButton(true)
-      console.error('Error submitting Other settings', err)
+      console.error('Error submitting Account Mapping settings', err)
     }
   }
 
-  const cancelOtherSettings = () => {
+  const cancelAccountMapping = () => {
     setShowButton(false)
     if (initialState) setSettingState(initialState)
   }
@@ -655,8 +655,8 @@ export const useOtherSettings = () => {
     options: data?.options,
     settingState,
     changeSettings,
-    submitOtherSettings,
-    cancelOtherSettings,
+    submitAccountMapping,
+    cancelAccountMapping,
     error,
     isLoading,
     showButton,
@@ -669,7 +669,7 @@ export const useSettings = () => {
   const [openItems, setOpenItems] = useState<string[]>(
     isEnabled
       ? ['product-mapping']
-      : ['product-mapping', 'invoice-detail', 'other-settings'],
+      : ['product-mapping', 'invoice-detail', 'account-mapping'],
   )
 
   return { openItems, setOpenItems }
