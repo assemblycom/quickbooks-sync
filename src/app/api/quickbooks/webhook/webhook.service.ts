@@ -14,7 +14,7 @@ import {
   InvoiceDeletedResponseSchema,
   InvoiceResponseSchema,
   PaymentSucceededResponseSchema,
-  PriceCreatedResponseSchema,
+  ProductCreatedResponseSchema,
   ProductUpdatedResponseSchema,
   WebhookEventResponseSchema,
   WebhookEventResponseType,
@@ -53,9 +53,9 @@ export class WebhookService extends BaseService {
       message: 'WebhookService#handleWebhookEvent | Webhook payload received',
     })
 
-    // for webhook event price.create, terminate process if createNewProductFlag is false
+    // for webhook event product.created, terminate process if createNewProductFlag is false
     if (
-      WebhookEvents.PRICE_CREATED === payload.eventType ||
+      WebhookEvents.PRODUCT_CREATED === payload.eventType ||
       WebhookEvents.PRODUCT_UPDATED === payload.eventType
     ) {
       const settingService = new SettingService(this.user)
@@ -88,8 +88,8 @@ export class WebhookService extends BaseService {
       case WebhookEvents.PRODUCT_UPDATED:
         return await this.handleProductUpdated(payload, qbTokenInfo)
 
-      case WebhookEvents.PRICE_CREATED:
-        return await this.handlePriceCreated(payload, qbTokenInfo)
+      case WebhookEvents.PRODUCT_CREATED:
+        return await this.handleProductCreated(payload, qbTokenInfo)
 
       case WebhookEvents.INVOICE_PAID:
         return await this.handleInvoicePaid(payload, qbTokenInfo)
@@ -409,26 +409,26 @@ export class WebhookService extends BaseService {
     }
   }
 
-  private async handlePriceCreated(
+  private async handleProductCreated(
     payload: unknown,
     qbTokenInfo: IntuitAPITokensType,
   ) {
-    console.info('###### PRICE CREATED ######')
-    const parsedCreatedPrice = PriceCreatedResponseSchema.safeParse(payload)
-    if (!parsedCreatedPrice.success || !parsedCreatedPrice.data) {
+    console.info('###### PRODUCT CREATED ######')
+    const parsedCreatedProduct = ProductCreatedResponseSchema.safeParse(payload)
+    if (!parsedCreatedProduct.success || !parsedCreatedProduct.data) {
       console.error(
-        'WebhookService#handlePriceCreated | Could not parse price created resource',
+        'WebhookService#handleProductCreated | Could not parse product created resource',
       )
       return
     }
-    const parsedCreatedPriceResource = parsedCreatedPrice.data
-    const priceResource = parsedCreatedPriceResource.data
+    const parsedCreatedProductResource = parsedCreatedProduct.data
+    const productResource = parsedCreatedProductResource.data
 
     try {
       validateAccessToken(qbTokenInfo)
       const productService = new ProductService(this.user)
-      await productService.webhookPriceCreated(
-        parsedCreatedPriceResource,
+      await productService.webhookProductCreated(
+        parsedCreatedProductResource,
         qbTokenInfo,
       )
     } catch (error: unknown) {
@@ -436,8 +436,7 @@ export class WebhookService extends BaseService {
       const syncLogService = new SyncLogService(this.user)
       const conditions = and(
         eq(QBSyncLog.portalId, this.user.workspaceId),
-        eq(QBSyncLog.copilotId, priceResource.productId),
-        eq(QBSyncLog.copilotPriceId, priceResource.id),
+        eq(QBSyncLog.copilotId, productResource.id),
         eq(QBSyncLog.eventType, EventType.CREATED),
       )
 
@@ -450,9 +449,8 @@ export class WebhookService extends BaseService {
           entityType: EntityType.PRODUCT,
           eventType: EventType.CREATED,
           status: LogStatus.FAILED,
-          copilotId: priceResource.productId,
-          productPrice: priceResource.amount?.toFixed(2),
-          copilotPriceId: priceResource.id,
+          copilotId: productResource.id,
+          productName: productResource.name,
           errorMessage,
           errorCode: errorWithCode.code?.toString(),
           shouldRetry: getShouldRetryForCategory(errorWithCode),
@@ -461,7 +459,7 @@ export class WebhookService extends BaseService {
         conditions,
       )
       console.error(
-        `WebhookService#handleWebhookEvent#handlePriceCreated :: Error | Portal Id: ${this.user.workspaceId} | PriceId: ${priceResource.id}`,
+        `WebhookService#handleWebhookEvent#handleProductCreated :: Error | Portal Id: ${this.user.workspaceId} | ProductId: ${productResource.id}`,
       )
       return
     }
