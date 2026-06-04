@@ -162,6 +162,13 @@
       "when": 1779277043255,
       "tag": "20260520113723_add_should_retry_to_qb_sync_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1780482267187,
+      "tag": "20260603102427_collapse_qb_product_sync_one_row_drop_price_columns",
+      "breakpoints": true
     }
   ]
 }
