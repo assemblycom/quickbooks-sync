@@ -27,7 +27,6 @@ import {
   getValidQbTokens,
   QBReconnectRequiredError,
 } from '@/utils/tokenRefresh'
-import { after } from 'next/server'
 
 export class AuthService extends BaseService {
   async getAuthUrl(
@@ -140,6 +139,7 @@ export class AuthService extends BaseService {
         assetAccountRef: insertPayload.assetAccountRef,
         serviceItemRef: existingToken?.serviceItemRef || null,
         clientFeeRef: existingToken?.clientFeeRef || null,
+        bankAccountRef: existingToken?.bankAccountRef || null,
       })
       // handle accounts
       const createPayload = await this.handleAccountReferences(
@@ -168,7 +168,7 @@ export class AuthService extends BaseService {
         connectionStatus: ConnectionStatus.SUCCESS,
       })
 
-      after(async () => {
+      afterIfAvailable(async () => {
         if (existingToken) {
           console.info('Not initial process. Starting the re-sync process')
           this.user.qbConnection = {
@@ -247,6 +247,7 @@ export class AuthService extends BaseService {
       assetAccountRef: '',
       serviceItemRef: '',
       clientFeeRef: '',
+      bankAccountRef: null,
     }
 
     // if sync is false but it has been enabled then don't throw error. We have to log in this case

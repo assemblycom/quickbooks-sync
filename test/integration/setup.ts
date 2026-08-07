@@ -37,6 +37,10 @@ vi.mock('@/utils/intuitAPI', () => ({
   // Named export used by src/utils/error.ts to detect Intuit-sourced APIErrors
   // when unwrapping error messages in the webhook catch block.
   IntuitAPIErrorMessage: '#IntuitAPIErrorMessage#',
+  // Named export consumed directly by controllers (e.g. bank-account) to
+  // build a customQuery SELECT list. Must be kept in sync with the real
+  // `QB_ACCOUNT_COLUMNS` in src/utils/intuitAPI.ts.
+  QB_ACCOUNT_COLUMNS: ['Id', 'Name', 'SyncToken', 'Active', 'AccountType'],
 }))
 
 // `@/utils/intuit` is the OAuth wrapper (separate from `@/utils/intuitAPI`,
@@ -97,6 +101,23 @@ vi.mock('@sentry/nextjs', () => ({
 // ordering at this layer.
 vi.mock('@/utils/sleep', () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
+}))
+
+// AB gate for the bank deposit rollout. The real allowlist is parsed from env
+// at `@/config` module load, so it can't be varied per-test once loaded. We
+// mock the gate here (setupFiles runs before any app module binds it) and drive
+// it via a globalThis-pinned allowlist. Default `null` = feature on for all
+// portals, matching the empty-env behavior so existing tests are unaffected.
+// A test opts in by setting `abTestGate.allowlist`; reset it in afterEach.
+const AB_GATE_GLOBAL_KEY = '__qbsync_ab_test_gate__'
+type ABGate = { allowlist: string[] | null }
+const abGateRef = globalThis as unknown as Record<string, ABGate | undefined>
+abGateRef[AB_GATE_GLOBAL_KEY] ??= { allowlist: null }
+vi.mock('@/utils/abTesting', () => ({
+  isPortalInBankDepositABTest: (portalId: string) => {
+    const gate = abGateRef[AB_GATE_GLOBAL_KEY]!
+    return gate.allowlist === null || gate.allowlist.includes(portalId)
+  },
 }))
 
 // Importing modules that pull `next/server` corrupts NTARH's AsyncLocalStorage.

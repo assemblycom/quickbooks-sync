@@ -1,10 +1,20 @@
 import APIError from '@/app/api/core/exceptions/api'
 import { BaseService } from '@/app/api/core/services/base.service'
 import { InvoiceStatus } from '@/app/api/core/types/invoice'
-import { EntityType, EventType, LogStatus } from '@/app/api/core/types/log'
+import {
+  EntityType,
+  EventType,
+  FailedRecordCategoryType,
+  LogStatus,
+} from '@/app/api/core/types/log'
 import { WebhookEvents } from '@/app/api/core/types/webhook'
 import { InvoiceService } from '@/app/api/quickbooks/invoice/invoice.service'
 import { PaymentService } from '@/app/api/quickbooks/payment/payment.service'
+import {
+  MixedPayoutIntentError,
+  getShouldRetryForPayout,
+} from '@/app/api/quickbooks/payout/payout.errors'
+import { PayoutService } from '@/app/api/quickbooks/payout/payout.service'
 import { ProductService } from '@/app/api/quickbooks/product/product.service'
 import { SettingService } from '@/app/api/quickbooks/setting/setting.service'
 import { SyncLogService } from '@/app/api/quickbooks/syncLog/syncLog.service'
@@ -14,6 +24,7 @@ import {
   InvoiceDestructiveResponseSchema,
   InvoiceResponseSchema,
   PaymentSucceededResponseSchema,
+  PayoutReconciliationCompletedSchema,
   ProductCreatedResponseSchema,
   ProductUpdatedResponseSchema,
   WebhookEventResponseSchema,
@@ -29,6 +40,10 @@ import { getCategory, getShouldRetryForCategory } from '@/utils/synclog'
 import { addSyncBreadcrumb } from '@/utils/sentry'
 import { and, eq } from 'drizzle-orm'
 import httpStatus from 'http-status'
+import {
+  MIXED_INTENT_INVOICE_DELIMITER,
+  PAYOUT_MIXED_INTENT_CODE,
+} from '@/constant/intuitErrorCode'
 
 export class WebhookService extends BaseService {
   async handleWebhookEvent(
@@ -108,6 +123,12 @@ export class WebhookService extends BaseService {
         return await this.handlePaymentSucceeded(payload, qbTokenInfo, {
           delayMs: 7000,
         })
+
+      case WebhookEvents.PAYOUT_RECONCILIATION_COMPLETED:
+        return await this.handlePayoutReconciliationCompleted(
+          payload,
+          qbTokenInfo,
+        )
 
       default:
         console.error('WebhookService#handleWebhookEvent | Unknown event type')
@@ -340,22 +361,13 @@ export class WebhookService extends BaseService {
       )
     } catch (error: unknown) {
       CustomLogger.error({ message: 'Webhook handler failed', obj: error })
-      const errorWithCode = getMessageAndCodeFromError(error)
-      const errorMessage = errorWithCode.message
-
-      await syncLogService.updateOrCreateQBSyncLog({
-        portalId: this.user.workspaceId,
-        entityType: EntityType.INVOICE,
-        eventType: EventType.PAID,
-        status: LogStatus.FAILED,
-        copilotId: parsedPaidInvoiceResource.data.id,
-        invoiceNumber: parsedPaidInvoiceResource.data.number,
-        amount: parsedPaidInvoiceResource.data.total.toFixed(2),
-        errorMessage,
-        errorCode: errorWithCode.code?.toString(),
-        shouldRetry: getShouldRetryForCategory(errorWithCode),
-        category: getCategory(errorWithCode),
-      })
+      await this.pushFailedInvoiceToSyncLog(
+        EventType.PAID,
+        parsedPaidInvoiceResource.data.id,
+        parsedPaidInvoiceResource.data.number,
+        parsedPaidInvoiceResource.data.total,
+        getMessageAndCodeFromError(error),
+      )
       console.error(
         `WebhookService#handleWebhookEvent#handleInvoicePaid :: Error | Portal Id: ${this.user.workspaceId} | Invoice: ${parsedPaidInvoiceResource.data.id}`,
       )
@@ -465,6 +477,34 @@ export class WebhookService extends BaseService {
     }
   }
 
+  // Shared FAILED absorbed-fee log for the no-mapping and QB-error paths.
+  private async logAbsorbedFeeFailure(opts: {
+    copilotId: string
+    feeAmount: string
+    errorMessage: string
+    invoiceNumber?: string
+    errorCode?: string
+    shouldRetry: boolean
+    category?: FailedRecordCategoryType
+  }) {
+    const syncLogService = new SyncLogService(this.user)
+    await syncLogService.updateOrCreateQBSyncLog({
+      portalId: this.user.workspaceId,
+      entityType: EntityType.PAYMENT,
+      eventType: EventType.SUCCEEDED,
+      status: LogStatus.FAILED,
+      copilotId: opts.copilotId,
+      invoiceNumber: opts.invoiceNumber,
+      feeAmount: opts.feeAmount,
+      remark: 'Absorbed fees',
+      qbItemName: 'Assembly Fees',
+      errorMessage: opts.errorMessage,
+      errorCode: opts.errorCode,
+      shouldRetry: opts.shouldRetry,
+      category: opts.category,
+    })
+  }
+
   private async handlePaymentSucceeded(
     payload: unknown,
     qbTokenInfo: IntuitAPITokensType,
@@ -479,90 +519,243 @@ export class WebhookService extends BaseService {
       )
       return
     }
-    const parsedPaymentSucceedResource = parsedPaymentSucceed.data
-    const feeAmount = parsedPaymentSucceedResource.data.feeAmount
+    const resource = parsedPaymentSucceed.data
+    const feeAmount = resource.data.feeAmount
 
-    if (feeAmount?.paidByPlatform && feeAmount.paidByPlatform > 0) {
-      // check if absorbed fee flag is true
-      const settingService = new SettingService(this.user)
-      const setting = await settingService.getOneByPortalId(['absorbedFeeFlag'])
+    // Only a platform-absorbed fee books a QBO expense; nothing to do otherwise.
+    if (!feeAmount?.paidByPlatform || feeAmount.paidByPlatform <= 0) return
 
-      if (!setting?.absorbedFeeFlag) {
-        console.info(
-          'WebhookService#handleWebhookEvent#payment-succeeded | Absorbed fee flag is false',
-        )
-        return
-      }
+    const { id: paymentId, invoiceId } = resource.data
+    const platformFee = feeAmount.paidByPlatform
 
-      if (opts.delayMs) await sleep(opts.delayMs)
-
-      const syncLogService = new SyncLogService(this.user)
-      const { claimed } = await syncLogService.claimWebhookEvent({
-        copilotId: parsedPaymentSucceedResource.data.id,
-        entityType: EntityType.PAYMENT,
-        eventType: EventType.SUCCEEDED,
-      })
-      if (!claimed) {
-        console.info(
-          `WebhookService#handlePaymentSucceeded | Already claimed (payment/${EventType.SUCCEEDED}, copilotId=${parsedPaymentSucceedResource.data.id}), skipping`,
-        )
-        return
-      }
-
-      const copilotApp = new CopilotAPI(this.user.token)
-      const invoice = await copilotApp.getInvoice(
-        parsedPaymentSucceedResource.data.invoiceId,
+    // Gate on the absorbed-fee flag before any fetch (off-flag → no Copilot call).
+    const settingService = new SettingService(this.user)
+    const setting = await settingService.getOneByPortalId(['absorbedFeeFlag'])
+    if (!setting?.absorbedFeeFlag) {
+      console.info(
+        'WebhookService#handlePaymentSucceeded | Absorbed fee flag is false',
       )
-      if (!invoice)
-        throw new APIError(
-          httpStatus.NOT_FOUND,
-          `Invoice not found in Assembly for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
-        )
+      return
+    }
 
-      try {
-        validateAccessToken(qbTokenInfo)
-        const invService = new InvoiceService(this.user)
-        const invoiceSync = await invService.getInvoiceByNumber(invoice.number)
-        if (!invoiceSync) {
-          throw new APIError(
-            httpStatus.NOT_FOUND,
-            `No invoice found in invoice sync table for invoice id: ${parsedPaymentSucceedResource.data.invoiceId}`,
-          )
-        }
-        // only track if the fee amount is paid by platform
-        const paymentService = new PaymentService(this.user)
-        await paymentService.webhookPaymentSucceeded({
-          parsedPaymentSucceedResource,
-          qbTokenInfo,
-          qbDocNumber: invoiceSync.qbDocNumber ?? invoice.number,
-          invoiceNumber: invoice.number,
-        })
-      } catch (error: unknown) {
-        CustomLogger.error({ message: 'Webhook handler failed', obj: error })
-        const errorWithCode = getMessageAndCodeFromError(error)
-        const errorMessage = errorWithCode.message
-        const feeAmount = parsedPaymentSucceedResource.data.feeAmount
+    const syncLogService = new SyncLogService(this.user)
+    // Cheap duplicate short-circuit before the sleep + Copilot fetch. Status-
+    // blind like claimWebhookEvent; FAILED recovery is the resync cron's job.
+    const existingPaymentLog =
+      await syncLogService.getOneByCopilotIdAndEventType({
+        copilotId: paymentId,
+        eventType: EventType.SUCCEEDED,
+        entityType: EntityType.PAYMENT,
+      })
+    if (existingPaymentLog) {
+      console.info(
+        `WebhookService#handlePaymentSucceeded | Already claimed (payment/${EventType.SUCCEEDED}, copilotId=${paymentId}); skipping`,
+      )
+      return
+    }
 
-        await syncLogService.updateOrCreateQBSyncLog({
-          portalId: this.user.workspaceId,
-          entityType: EntityType.PAYMENT,
-          eventType: EventType.SUCCEEDED,
-          status: LogStatus.FAILED,
-          copilotId: parsedPaymentSucceedResource.data.id,
-          invoiceNumber: invoice.number,
-          feeAmount: feeAmount ? feeAmount.paidByPlatform.toFixed(2) : '0',
-          remark: 'Absorbed fees',
-          qbItemName: 'Assembly Fees',
-          errorMessage,
-          errorCode: errorWithCode.code?.toString(),
-          shouldRetry: getShouldRetryForCategory(errorWithCode),
-          category: getCategory(errorWithCode),
-        })
-        console.error(
-          `WebhookService#handleWebhookEvent#handlePaymentSucceeded :: Error | Portal Id: ${this.user.workspaceId} | Payment: ${parsedPaymentSucceedResource.data.id}`,
-        )
-        return
-      }
+    if (opts.delayMs) await sleep(opts.delayMs)
+
+    const copilotApp = new CopilotAPI(this.user.token)
+    const invoice = await copilotApp.getInvoice(invoiceId)
+    if (!invoice)
+      throw new APIError(
+        httpStatus.NOT_FOUND,
+        `Invoice not found in Assembly for invoice id: ${invoiceId}`,
+      )
+
+    // Fetch before claiming so the batched defer below writes zero rows.
+    const invService = new InvoiceService(this.user)
+    const invoiceSync = await invService.getInvoiceByNumber(invoice.number, [
+      'id',
+      'qbInvoiceId',
+      'qbDocNumber',
+      'isBatchedDeposit',
+    ])
+
+    if (invoiceSync?.isBatchedDeposit) {
+      // Frozen batched: the payout books the fee. Defer before claiming.
+      console.info(
+        'WebhookService#handlePaymentSucceeded | Batched-deposit mode (frozen); deferring to payout event',
+      )
+      return
+    }
+
+    const { claimed } = await syncLogService.claimWebhookEvent({
+      copilotId: paymentId,
+      eventType: EventType.SUCCEEDED,
+      entityType: EntityType.PAYMENT,
+    })
+    if (!claimed) {
+      console.info(
+        `WebhookService#handlePaymentSucceeded | Already claimed (payment/${EventType.SUCCEEDED}, copilotId=${paymentId}), skipping`,
+      )
+      return
+    }
+
+    // Post-claim so the update targets the row just claimed, not a racing insert.
+    if (!invoiceSync) {
+      await this.logAbsorbedFeeFailure({
+        copilotId: paymentId,
+        feeAmount: platformFee.toFixed(2),
+        errorMessage: `No invoice found in invoice sync table for invoice id: ${invoiceId}`,
+        shouldRetry: true,
+        invoiceNumber: invoice.number,
+      })
+      return
+    }
+
+    try {
+      validateAccessToken(qbTokenInfo)
+      const paymentService = new PaymentService(this.user)
+      await paymentService.webhookPaymentSucceeded({
+        parsedPaymentSucceedResource: resource,
+        qbTokenInfo,
+        qbDocNumber: invoiceSync.qbDocNumber ?? invoice.number,
+        invoiceNumber: invoice.number,
+      })
+    } catch (error: unknown) {
+      CustomLogger.error({ message: 'Webhook handler failed', obj: error })
+      const errorWithCode = getMessageAndCodeFromError(error)
+      await this.logAbsorbedFeeFailure({
+        copilotId: paymentId,
+        invoiceNumber: invoice.number,
+        feeAmount: platformFee.toFixed(2),
+        errorMessage: errorWithCode.message,
+        errorCode: errorWithCode.code?.toString(),
+        shouldRetry: getShouldRetryForCategory(errorWithCode),
+        category: getCategory(errorWithCode),
+      })
+      console.error(
+        `WebhookService#handlePaymentSucceeded :: Error | Portal Id: ${this.user.workspaceId} | Payment: ${paymentId}`,
+      )
+      return
+    }
+  }
+
+  private async handlePayoutReconciliationCompleted(
+    payload: unknown,
+    qbTokenInfo: IntuitAPITokensType,
+  ) {
+    console.info('###### PAYOUT RECONCILIATION COMPLETED ######')
+    const parsedPayout = PayoutReconciliationCompletedSchema.safeParse(payload)
+    if (!parsedPayout.success) {
+      console.error(
+        'WebhookService#handlePayoutReconciliationCompleted | Could not parse payout payload',
+      )
+      return
+    }
+    const {
+      data: { payout, lineItems },
+    } = parsedPayout.data
+
+    const payoutId = payout.id
+    const syncLogService = new SyncLogService(this.user)
+    const payoutService = new PayoutService(this.user)
+    const copilotInvoiceIds = lineItems.map((line) => line.copilotInvoiceId)
+
+    // Resolve intent before claiming: an all-non-batched payout books nothing,
+    // so skip with zero rows (claiming would leave a PENDING that flips FAILED).
+    const paymentIdByInvoice =
+      await syncLogService.getSuccessfulPaidPaymentIds(copilotInvoiceIds)
+    const resolvedIntents = copilotInvoiceIds.map((id) =>
+      paymentIdByInvoice.get(id),
+    )
+    if (resolvedIntents.every((intent) => intent && !intent.isBatchedDeposit)) {
+      console.info(
+        `WebhookService#handlePayoutReconciliationCompleted | Payout ${payoutId}: all invoices non-batched, nothing to deposit`,
+      )
+      return
+    }
+
+    // Add up the fee here so the payout row, the success log, and the
+    // failure log can all use it.
+    const feeCents = lineItems.reduce((sum, line) => sum + line.feeAmount, 0)
+
+    // Save the payout details first so a failed attempt can be rebuilt on
+    // resync. Runs before the claim, so a re-sent payout just updates the row.
+    const payoutRow = await payoutService.upsertPayoutSync({
+      payoutId,
+      lineItems,
+      netAmount: payout.netAmount,
+      feeCents,
+      arrivalDate: payout.arrivalDate,
+    })
+
+    const { claimed } = await syncLogService.claimWebhookEvent({
+      copilotId: payoutId,
+      entityType: EntityType.PAYOUT,
+      eventType: EventType.SETTLED,
+    })
+    if (!claimed) {
+      console.info(
+        `WebhookService#handlePayoutReconciliationCompleted | Already claimed (payout/${EventType.SETTLED}, copilotId=${payoutId}), skipping`,
+      )
+      return
+    }
+
+    try {
+      const { depositId } = await payoutService.reconcile(
+        payoutRow,
+        qbTokenInfo,
+        { runIdempotencyCheck: false },
+      )
+
+      await syncLogService.updateOrCreateQBSyncLog({
+        portalId: this.user.workspaceId,
+        entityType: EntityType.PAYOUT,
+        eventType: EventType.SETTLED,
+        status: LogStatus.SUCCESS,
+        copilotId: payoutId,
+        quickbooksId: depositId ?? undefined,
+        amount: payout.netAmount.toFixed(2),
+        feeAmount: feeCents.toFixed(2),
+        remark: 'Stripe payout batched deposit',
+        qbItemName: 'Stripe payout',
+        errorMessage: '',
+      })
+    } catch (error: unknown) {
+      CustomLogger.error({
+        message: 'Payout reconciliation handler failed',
+        obj: error,
+      })
+      const isMixed = error instanceof MixedPayoutIntentError
+      const errorWithCode = getMessageAndCodeFromError(error)
+      // Mixed intent stashes the affected invoice numbers in `remark` (a payout
+      // spans multiple invoices, so they don't fit the single invoiceNumber col).
+      const affectedInvoiceNumbers = copilotInvoiceIds
+        .map((id) => paymentIdByInvoice.get(id)?.invoiceNumber)
+        .filter(Boolean)
+        .join(MIXED_INTENT_INVOICE_DELIMITER)
+      // Single FAILED-log write. Mixed intent gets the routable sentinel so
+      // SyncErrorNotifier alerts IUs; everything else keeps its derived code.
+      // No qbItemName — it would outrank copilotId (the payout id) in the
+      // notification's entity reference.
+      await syncLogService.updateOrCreateQBSyncLog({
+        portalId: this.user.workspaceId,
+        entityType: EntityType.PAYOUT,
+        eventType: EventType.SETTLED,
+        status: LogStatus.FAILED,
+        copilotId: payoutId,
+        amount: payout.netAmount.toFixed(2),
+        feeAmount: feeCents.toFixed(2),
+        remark:
+          isMixed && affectedInvoiceNumbers
+            ? affectedInvoiceNumbers
+            : 'Stripe payout batched deposit',
+        errorMessage: errorWithCode.message,
+        errorCode: isMixed
+          ? PAYOUT_MIXED_INTENT_CODE
+          : errorWithCode.code?.toString(),
+        shouldRetry: getShouldRetryForPayout(error),
+        category: isMixed
+          ? FailedRecordCategoryType.OTHERS
+          : getCategory(errorWithCode),
+      })
+      console.error(
+        `WebhookService#handlePayoutReconciliationCompleted :: Error | Portal Id: ${this.user.workspaceId} | Payout: ${payoutId}`,
+      )
+      return
     }
   }
 }

@@ -5,9 +5,15 @@ import {
   NotificationContext,
 } from '@/app/api/core/types/notification'
 import { NotificationService } from '@/app/api/notification/notification.service'
-import { UserActionableErrorCodes } from '@/constant/intuitErrorCode'
+import {
+  AppActionableErrorCodes,
+  MIXED_INTENT_INVOICE_DELIMITER,
+  UserActionableErrorCodes,
+} from '@/constant/intuitErrorCode'
 import { QBSyncLogSelectSchemaType } from '@/db/schema/qbSyncLogs'
 import { getPortalConnection } from '@/db/service/token.service'
+import { getInvoiceNumbersWithRecordedFee } from '@/db/service/syncLog.service'
+import CustomLogger from '@/utils/logger'
 
 /**
  * Looks up the user-actionable notification action for a given QBO error code.
@@ -18,7 +24,11 @@ export function getActionForErrorCode(
   errorCode: string | null | undefined,
 ): NotificationActions | null {
   if (!errorCode) return null
-  return UserActionableErrorCodes[errorCode] ?? null
+  return (
+    UserActionableErrorCodes[errorCode] ??
+    AppActionableErrorCodes[errorCode] ??
+    null
+  )
 }
 
 /**
@@ -34,6 +44,13 @@ export function getEntityKey(log: QBSyncLogSelectSchemaType): string {
     log.copilotId ||
     ''
   )
+}
+
+type MixedPayoutInvoices = {
+  // Display-joined affected invoice numbers (from the log `remark`).
+  affectedInvoiceNumbers?: string
+  // Subset whose absorbed fee is already recorded in QBO.
+  invoiceNumbersWithFee?: string
 }
 
 export class SyncErrorNotifier extends BaseService {
@@ -62,15 +79,26 @@ export class SyncErrorNotifier extends BaseService {
       return
     }
 
+    // Only mixed-payout rows carry an affected-invoice list to resolve.
+    const {
+      affectedInvoiceNumbers,
+      invoiceNumbersWithFee,
+    }: MixedPayoutInvoices =
+      action !== NotificationActions.QB_PAYOUT_MIXED_INTENT
+        ? {}
+        : await this.resolveMixedPayoutInvoices(log.remark)
+
     const context: NotificationContext = {
       entityType: log.entityType,
       eventType: log.eventType,
       entityKey: getEntityKey(log),
-      invoiceNumber: log.invoiceNumber ?? undefined,
-      customerName: log.customerName ?? undefined,
-      productName: log.productName ?? undefined,
-      qbItemName: log.qbItemName ?? undefined,
-      errorMessage: log.errorMessage ?? undefined,
+      invoiceNumber: log.invoiceNumber,
+      customerName: log.customerName,
+      productName: log.productName,
+      qbItemName: log.qbItemName,
+      errorMessage: log.errorMessage,
+      invoiceNumbers: affectedInvoiceNumbers,
+      invoiceNumbersWithFee,
     }
     const portal = await getPortalConnection(this.user.workspaceId)
 
@@ -83,5 +111,35 @@ export class SyncErrorNotifier extends BaseService {
       action,
       context,
     )
+  }
+
+  // Resolve a mixed-payout `remark` into its affected invoices and the subset
+  // with a recorded fee; a lookup blip drops that detail, not the notification.
+  private async resolveMixedPayoutInvoices(
+    remark: string | null,
+  ): Promise<MixedPayoutInvoices> {
+    if (!remark) return {}
+    const affected = remark
+      .split(MIXED_INTENT_INVOICE_DELIMITER)
+      .filter(Boolean)
+    let invoiceNumbersWithFee: string | undefined
+    try {
+      const withFee = await getInvoiceNumbersWithRecordedFee(
+        this.user.workspaceId,
+        affected,
+      )
+      const recorded = affected.filter((invoiceNumber) =>
+        withFee.has(invoiceNumber),
+      )
+      if (recorded.length)
+        invoiceNumbersWithFee = recorded.join(MIXED_INTENT_INVOICE_DELIMITER)
+    } catch (error) {
+      CustomLogger.error({
+        message:
+          'SyncErrorNotifier | recorded-fee lookup failed; notifying without it',
+        obj: error,
+      })
+    }
+    return { affectedInvoiceNumbers: remark, invoiceNumbersWithFee }
   }
 }

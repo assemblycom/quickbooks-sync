@@ -10,6 +10,7 @@ import { QBSetting, QBSettingCreateSchema } from '@/db/schema/qbSettings'
 import { QBCustomers } from '@/db/schema/qbCustomers'
 import { QBInvoiceSync } from '@/db/schema/qbInvoiceSync'
 import { QBSyncLog } from '@/db/schema/qbSyncLogs'
+import { QBPayoutSync } from '@/db/schema/qbPayoutSync'
 import { InvoiceStatus } from '@/app/api/core/types/invoice'
 import { EntityType, EventType, LogStatus } from '@/app/api/core/types/log'
 
@@ -20,6 +21,8 @@ export const TEST_REFRESH_TOKEN = 'test-refresh-token'
 export const TEST_INCOME_ACCOUNT_REF = '100'
 export const TEST_ASSET_ACCOUNT_REF = '101'
 export const TEST_EXPENSE_ACCOUNT_REF = '102'
+export const TEST_BANK_ACCOUNT_REF = '103'
+export const TEST_UNDEPOSITED_FUNDS_REF = '150'
 export const TEST_INTERNAL_USER_ID = 'test-internal-user-id'
 export const TEST_WEBHOOK_TOKEN = 'test-token-xyz'
 
@@ -184,4 +187,77 @@ export async function seedInvoiceCreatedLog(overrides: SyncLogOverrides = {}) {
     .values({ ...baseInvoiceCreatedLog, ...overrides })
     .returning()
   return row
+}
+
+/**
+ * Seeds the two rows a payout needs per invoice: the qb_invoice_sync row
+ * (carrying the frozen `isBatchedDeposit`) and the INVOICE/PAID SUCCESS sync
+ * log (quickbooksId = QBO Payment ID). getSuccessfulPaidPaymentIds joins them
+ * by (portalId, invoiceNumber).
+ */
+export async function seedPaidInvoiceForPayout(opts: {
+  copilotInvoiceId: string
+  invoiceNumber: string
+  paymentId: string
+  isBatchedDeposit: boolean
+}) {
+  await db.insert(QBInvoiceSync).values({
+    portalId: TEST_PORTAL_ID,
+    invoiceNumber: opts.invoiceNumber,
+    qbInvoiceId: TEST_QB_INVOICE_ID,
+    qbSyncToken: '0',
+    recipientId: TEST_CLIENT_ID,
+    status: InvoiceStatus.PAID,
+    isBatchedDeposit: opts.isBatchedDeposit,
+  })
+  await db.insert(QBSyncLog).values({
+    portalId: TEST_PORTAL_ID,
+    entityType: EntityType.INVOICE,
+    eventType: EventType.PAID,
+    status: LogStatus.SUCCESS,
+    copilotId: opts.copilotInvoiceId,
+    invoiceNumber: opts.invoiceNumber,
+    quickbooksId: opts.paymentId,
+  })
+}
+
+// A failed, retryable payout sync log plus its qb_payout_sync row —
+// the state the resync cron picks up.
+export async function seedFailedPayout(opts: {
+  payoutId: string
+  lineItems: Array<{
+    copilotInvoiceId: string
+    grossAmount: number
+    feeAmount: number
+  }>
+  netAmount: number
+  feeCents: number
+  arrivalDate: number
+  qbDepositId?: string
+  errorMessage?: string
+}) {
+  // Independent tables, no FK between them — insert both at once.
+  await Promise.all([
+    db.insert(QBPayoutSync).values({
+      portalId: TEST_PORTAL_ID,
+      payoutId: opts.payoutId,
+      lineItems: opts.lineItems,
+      netAmount: opts.netAmount,
+      feeAmount: opts.feeCents,
+      arrivalDate: opts.arrivalDate,
+      qbDepositId: opts.qbDepositId ?? null,
+    }),
+    db.insert(QBSyncLog).values({
+      portalId: TEST_PORTAL_ID,
+      entityType: EntityType.PAYOUT,
+      eventType: EventType.SETTLED,
+      status: LogStatus.FAILED,
+      copilotId: opts.payoutId,
+      // Cents-as-string, matching what the webhook writes for a payout log.
+      amount: opts.netAmount.toFixed(2),
+      feeAmount: opts.feeCents.toFixed(2),
+      errorMessage: opts.errorMessage ?? 'QuickBooks timed out',
+      shouldRetry: true,
+    }),
+  ])
 }

@@ -10,6 +10,7 @@ import {
   TEST_QB_PURCHASE_ID,
   TEST_QB_PAYMENT_ID,
   TEST_QB_INVOICE_ID,
+  TEST_UNDEPOSITED_FUNDS_REF,
 } from './seed'
 
 // Restricts override keys to the actual method names of the underlying class
@@ -70,6 +71,9 @@ export function createMockCopilotAPI(overrides: CopilotAPIOverrides = {}) {
       id: TEST_COPILOT_INVOICE_ID,
       number: TEST_INVOICE_NUMBER,
     }),
+    // Deferred SyncErrorNotifier dispatch calls these; empty IU list = no-op.
+    getInternalUsers: vi.fn().mockResolvedValue({ data: [] }),
+    createNotification: vi.fn().mockResolvedValue({ id: 'notif-1' }),
     ...overrides,
   }
 }
@@ -130,6 +134,16 @@ export function createMockIntuitAPI(overrides: IntuitAPIOverrides = {}) {
     createPayment: vi.fn().mockResolvedValue({
       Payment: { Id: TEST_QB_PAYMENT_ID, SyncToken: '0' },
     }),
+    // Batched-deposit routing looks this up when the frozen intent is batched.
+    getUndepositedFundsAccountId: vi
+      .fn()
+      .mockResolvedValue(TEST_UNDEPOSITED_FUNDS_REF),
+    // payout.reconciliation_completed sweeps the batched payments into a deposit.
+    createDeposit: vi.fn().mockResolvedValue({
+      Deposit: { Id: 'qb-deposit-1', SyncToken: '0' },
+    }),
+    // Payout resync checks for an existing deposit first — none by default.
+    getDepositsByTxnDate: vi.fn().mockResolvedValue([]),
     // Handler ignores the response; it just needs the call to succeed (OUT-3921).
     voidInvoice: vi.fn().mockResolvedValue({
       Invoice: { Id: TEST_QB_INVOICE_ID, SyncToken: '1' },

@@ -10,6 +10,7 @@ export enum NotificationActions {
   QB_TXN_LINK_FAILED = 'qb_txn_link_failed',
   QB_ITEM_INCOME_ACCOUNT_MISSING = 'qb_item_income_account_missing',
   QB_INVALID_ACCOUNT_TYPE = 'qb_invalid_account_type',
+  QB_PAYOUT_MIXED_INTENT = 'qb_payout_mixed_intent',
 }
 
 /**
@@ -24,9 +25,17 @@ export interface NotificationContext {
   entityType?: string
   eventType?: string
   entityKey?: string
-  invoiceNumber?: string
-  customerName?: string
-  productName?: string
-  qbItemName?: string
-  errorMessage?: string
+  // Nullable string fields mirror their nullable qb_sync_logs columns, so
+  // callers can pass log values directly. Consumers treat null/undefined alike.
+  invoiceNumber?: string | null
+  // Comma-joined invoice numbers for a multi-invoice failure (mixed payout),
+  // where the single invoiceNumber above can't hold them all.
+  invoiceNumbers?: string | null
+  // Subset of invoiceNumbers whose absorbed fee is already recorded in QBO, so a
+  // mixed-payout body can tell IUs which fees not to record a second time.
+  invoiceNumbersWithFee?: string | null
+  customerName?: string | null
+  productName?: string | null
+  qbItemName?: string | null
+  errorMessage?: string | null
 }

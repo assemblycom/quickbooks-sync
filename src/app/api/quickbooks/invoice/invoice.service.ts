@@ -49,6 +49,7 @@ import {
   InvoiceLineItemSchemaType,
   InvoiceResponseType,
 } from '@/type/dto/webhook.dto'
+import { isPortalInBankDepositABTest } from '@/utils/abTesting'
 import { bottleneck } from '@/utils/bottleneck'
 import { CopilotAPI } from '@/utils/copilotAPI'
 import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
@@ -481,6 +482,29 @@ export class InvoiceService extends BaseService {
     return { value: serviceItemRef }
   }
 
+  // Reads the live batched-deposit setting. Called only at the freeze point
+  // (row creation); everything else reads the frozen row value.
+  private async readBankDepositFeeFlag(): Promise<boolean> {
+    // AB gate: portals outside the allowlist never freeze as batched.
+    if (!isPortalInBankDepositABTest(this.user.workspaceId)) return false
+    const settingService = new SettingService(this.user)
+    const setting = await settingService.getOneByPortalId([
+      'bankDepositFeeFlag',
+    ])
+    return setting?.bankDepositFeeFlag ?? false
+  }
+
+  // Undeposited Funds when the invoice's frozen intent is batched, else
+  // undefined (QBO default). No live setting read.
+  private async resolveDepositToAccountRef(
+    intuitApi: IntuitAPI,
+    isBatchedDeposit: boolean,
+  ): Promise<string | undefined> {
+    return isBatchedDeposit
+      ? await intuitApi.getUndepositedFundsAccountId()
+      : undefined
+  }
+
   /**
    * Pre-flights QBO for invoices whose DocNumber starts with the Assembly
    * invoice number and returns the lowest free slot (`<n>`, `<n>-1`, …).
@@ -790,6 +814,7 @@ export class InvoiceService extends BaseService {
       invoiceRes = await intuitApiService.createInvoice(buildPayload(docNumber))
     }
 
+    const isBatchedDeposit = await this.readBankDepositFeeFlag()
     const invoicePayload = {
       portalId: this.user.workspaceId,
       invoiceNumber: invoiceResource.number,
@@ -799,6 +824,7 @@ export class InvoiceService extends BaseService {
       recipientId: recipientInfo.recipientId,
       customerId: existingCustomerMapId, // foreign key to customer mapping
       status: invoiceResource.status,
+      isBatchedDeposit,
     }
     const inserted = await this.createQBInvoice(invoicePayload, ['id'])
 
@@ -838,11 +864,20 @@ export class InvoiceService extends BaseService {
      */
     if (invoiceResource.status === InvoiceStatus.PAID) {
       const paymentService = new PaymentService(this.user)
+      // Same routing as invoice.paid: batched → Undeposited Funds so the
+      // payout deposit can sweep it later.
+      const depositToAccountRef = await this.resolveDepositToAccountRef(
+        intuitApiService,
+        isBatchedDeposit,
+      )
       const qbPaymentPayload = {
         TotalAmt: totalWithTax,
         CustomerRef: {
           value: customerRefValue,
         },
+        ...(depositToAccountRef && {
+          DepositToAccountRef: { value: depositToAccountRef },
+        }),
         Line: [
           {
             Amount: totalWithTax,
@@ -884,6 +919,7 @@ export class InvoiceService extends BaseService {
       'qbInvoiceId',
       'status',
       'customerId',
+      'isBatchedDeposit',
     ])
 
     if (!invoiceSync) {
@@ -937,11 +973,21 @@ export class InvoiceService extends BaseService {
     )
 
     const invoiceAmount = Number(z.string().parse(invoiceLog.amount)) / 100
+
+    const intuitApi = new IntuitAPI(qbTokenInfo)
+    const depositToAccountRef = await this.resolveDepositToAccountRef(
+      intuitApi,
+      invoiceSync.isBatchedDeposit,
+    )
+
     const qbPaymentPayload = {
       TotalAmt: invoiceAmount,
       CustomerRef: {
         value: existingCustomer.qbCustomerId,
       },
+      ...(depositToAccountRef && {
+        DepositToAccountRef: { value: depositToAccountRef },
+      }),
       Line: [
         {
           Amount: invoiceAmount,
@@ -954,7 +1000,6 @@ export class InvoiceService extends BaseService {
         },
       ],
     }
-    const intuitApi = new IntuitAPI(qbTokenInfo)
     const paymentService = new PaymentService(this.user)
 
     const customerDisplayName =
@@ -1414,6 +1459,7 @@ export class InvoiceService extends BaseService {
         recipientId: recipientInfo.recipientId,
         customerId: customerMapId,
         status,
+        isBatchedDeposit: await this.readBankDepositFeeFlag(),
       },
       ['id'],
     )

@@ -13,6 +13,10 @@ import {
   QBPaymentCreatePayloadType,
   QBAccountCreatePayloadType,
   QBPurchaseCreatePayloadType,
+  QBDepositCreatePayloadType,
+  QBDepositResponseSchema,
+  QBDepositResponseType,
+  QBDepositQueryResponseSchema,
   QBDeletePayloadType,
   QBDestructiveInvoicePayloadSchema,
   QBItemRowType,
@@ -64,6 +68,7 @@ export type IntuitAPITokensType = Pick<
   | 'assetAccountRef'
   | 'serviceItemRef'
   | 'clientFeeRef'
+  | 'bankAccountRef'
 > & { isSuspended?: boolean }
 
 export const IntuitAPIErrorMessage = '#IntuitAPIErrorMessage#'
@@ -976,6 +981,68 @@ export default class IntuitAPI {
     return parsed
   }
 
+  async _createDeposit(
+    payload: QBDepositCreatePayloadType,
+  ): Promise<QBDepositResponseType> {
+    CustomLogger.info({
+      obj: { payload },
+      message: `IntuitAPI#createDeposit | Deposit create start for realmId: ${this.tokens.intuitRealmId}.`,
+    })
+    const url = `${intuitBaseUrl}/v3/company/${this.tokens.intuitRealmId}/deposit?minorversion=${intuitApiMinorVersion}`
+    const deposit = await this.postFetchWithHeaders(url, payload)
+
+    if (!deposit)
+      throw new APIError(
+        httpStatus.BAD_REQUEST,
+        'IntuitAPI#createDeposit | message = no response',
+      )
+
+    assertNotQBFault(deposit, 'createDeposit')
+
+    const parsed = QBDepositResponseSchema.parse(deposit)
+    CustomLogger.info({
+      obj: { response: parsed.Deposit },
+      message: `IntuitAPI#createDeposit | Deposit created with Id = ${parsed.Deposit.Id}.`,
+    })
+    return parsed
+  }
+
+  // Read all pages so we don't miss a deposit on a busy day. Miss one and
+  // resync makes a duplicate deposit that QBO won't let us delete. maxPages is
+  // just a safety cap — hitting it would need 50k deposits in a single day.
+  async _getDepositsByTxnDate(
+    txnDate: string,
+  ): Promise<Array<{ Id: string; PrivateNote?: string }>> {
+    CustomLogger.info({
+      obj: { txnDate },
+      message: `IntuitAPI#getDepositsByTxnDate | start for realmId: ${this.tokens.intuitRealmId}.`,
+    })
+
+    const pageSize = 1000
+    const maxPages = 50
+    const deposits: Array<{ Id: string; PrivateNote?: string }> = []
+    let startPosition = 1
+
+    for (let pages = 0; pages < maxPages; pages++) {
+      const query = `select Id, PrivateNote, TxnDate from Deposit where TxnDate = '${escapeForQBQuery(txnDate)}' STARTPOSITION ${startPosition} MAXRESULTS ${pageSize}`
+      const response = await this.customQuery(query)
+      if (!response) return deposits
+
+      const envelope = QBDepositQueryResponseSchema.parse(response)
+      const page = envelope.Deposit ?? []
+      deposits.push(...page)
+
+      if (page.length < pageSize) return deposits
+      startPosition += pageSize
+    }
+
+    CustomLogger.error({
+      obj: { txnDate, maxPages },
+      message: `IntuitAPI#getDepositsByTxnDate | pagination cap (${maxPages} pages) hit for realmId: ${this.tokens.intuitRealmId} — result truncated at ${deposits.length} deposits.`,
+    })
+    return deposits
+  }
+
   async _deletePurchase(
     payload: QBDeletePayloadType,
   ): Promise<QBPurchaseDeleteResponseType> {
@@ -1014,6 +1081,47 @@ export default class IntuitAPI {
 
     const parsedCompanyInfo = CompanyInfoSchema.parse(companyInfo)
     return parsedCompanyInfo.CompanyInfo[0]
+  }
+
+  /**
+   * Look up the QBO system "Undeposited Funds" account.
+   * Every QBO company has exactly one — it cannot be deleted or recreated.
+   * Queries by AccountSubType first (survives user renames), falls back to name.
+   */
+  async getUndepositedFundsAccountId(): Promise<string> {
+    CustomLogger.info({
+      message:
+        'IntuitAPI#getUndepositedFundsAccountId | Looking up Undeposited Funds account',
+    })
+    const rawResult = await this.customQuery(
+      `SELECT ${QB_ACCOUNT_COLUMNS.join(', ')} FROM Account WHERE AccountSubType = 'UndepositedFunds' AND Active = true maxresults 1`,
+    )
+    const undepositedAccount = QBAccountQueryResponseSchema.parse(
+      rawResult ?? {},
+    ).Account?.[0]
+    if (undepositedAccount?.Id) {
+      CustomLogger.info({
+        obj: { account: undepositedAccount },
+        message:
+          'IntuitAPI#getUndepositedFundsAccountId | Found Undeposited Funds account',
+      })
+      return undepositedAccount.Id
+    }
+
+    const byName = await this.getAnAccount('Undeposited Funds')
+    if (byName?.Id) {
+      CustomLogger.info({
+        obj: { account: byName },
+        message:
+          'IntuitAPI#getUndepositedFundsAccountId | Found Undeposited Funds account by name',
+      })
+      return byName.Id
+    }
+
+    throw new APIError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'IntuitAPI#getUndepositedFundsAccountId | Undeposited Funds account not found in QuickBooks',
+    )
   }
 
   private wrapWithRetry<Args extends unknown[], R>(
@@ -1062,5 +1170,7 @@ export default class IntuitAPI {
   createPurchase = this.wrapWithRetry(this._createPurchase)
   deletePayment = this.wrapWithRetry(this._deletePayment)
   deletePurchase = this.wrapWithRetry(this._deletePurchase)
+  createDeposit = this.wrapWithRetry(this._createDeposit)
+  getDepositsByTxnDate = this._getDepositsByTxnDate.bind(this)
   getCompanyInfo = this._getCompanyInfo.bind(this)
 }

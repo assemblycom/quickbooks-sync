@@ -86,7 +86,7 @@ export const useProductMappingSettings = () => {
     if (!productSetting || !intialSettingState) return
     const showButton = !equal(intialSettingState, productSetting)
     setSettingShowConfirm(showButton)
-  }, [productSetting])
+  }, [productSetting, intialSettingState])
 
   useEffect(() => {
     if (setting && setting?.setting) {
@@ -104,7 +104,7 @@ export const useProductMappingSettings = () => {
           false,
       }))
     }
-  }, [setting])
+  }, [setting, setAppParams])
   // End of checkbox settings
 
   const tableMappingSubmit = async () => {
@@ -287,17 +287,18 @@ function formatQBItemForListing(
     : undefined
 }
 
+const emptyMappedItem = {
+  name: null,
+  description: '',
+  productId: null,
+  qbItemId: null,
+  qbSyncToken: null,
+  isExcluded: true,
+}
+
 export const useProductTableSetting = (
   setMappingItems: (mapProducts: ProductMappingItemType[]) => void,
 ) => {
-  const emptyMappedItem = {
-    name: null,
-    description: '',
-    productId: null,
-    qbItemId: null,
-    qbSyncToken: null,
-    isExcluded: true,
-  }
   const { token, setAppParams, syncFlag } = useApp()
   const { data: products } = useSwrHelper(
     `/api/quickbooks/product/flatten?token=${token}`,
@@ -366,7 +367,7 @@ export const useProductTableSetting = (
       }
       setMappingItems(newMap)
     }
-  }, [products, mappedItems, quickbooksItems])
+  }, [products, mappedItems, quickbooksItems, setAppParams, setMappingItems])
 
   const handleCopilotProductCreate = () => {
     const payload = {
@@ -385,9 +386,16 @@ export const useProductTableSetting = (
     }
   }, [products])
 
+  // Memoized so its reference is stable across unrelated re-renders —
+  // downstream useMapItem depends on this list.
+  const formattedQuickbooksItems = useMemo(
+    () => formatQBItemForListing(quickbooksItems),
+    [quickbooksItems],
+  )
+
   return {
     products: formattedProducts,
-    quickbooksItems: formatQBItemForListing(quickbooksItems),
+    quickbooksItems: formattedQuickbooksItems,
     handleCopilotProductCreate,
     hasLongProductName,
   }
@@ -401,28 +409,18 @@ export const useMapItem = (
   const [currentlyMapped, setCurrentlyMapped] = useState<
     { name: string } | undefined
   >()
-  const checkIfMappedItemExists = () => {
-    const currentMapItem = mappingItems?.find((item) => {
-      return item.productId === productId && item.qbItemId
-    })
-    const currentQbItem = qbItems?.find((item) => {
-      return item.id === currentMapItem?.qbItemId
-    })
-
-    let itemToReturn: { name: string } | undefined
-    const itemName = currentQbItem?.name || currentMapItem?.name
-
-    if (itemName) {
-      itemToReturn = { name: itemName }
-    }
-
-    setCurrentlyMapped(itemToReturn)
-    return itemToReturn
-  }
 
   useEffect(() => {
-    if (mappingItems) checkIfMappedItemExists()
-  }, [mappingItems])
+    if (!mappingItems) return
+    const currentMapItem = mappingItems.find(
+      (item) => item.productId === productId && item.qbItemId,
+    )
+    const currentQbItem = qbItems?.find(
+      (item) => item.id === currentMapItem?.qbItemId,
+    )
+    const itemName = currentQbItem?.name || currentMapItem?.name
+    setCurrentlyMapped(itemName ? { name: itemName } : undefined)
+  }, [mappingItems, productId, qbItems])
 
   return {
     currentlyMapped,
@@ -432,13 +430,19 @@ export const useMapItem = (
 export const useInvoiceDetailSettings = () => {
   const initialInvoiceSetting = {
     absorbedFeeFlag: false,
+    bankDepositFeeFlag: false,
     useCompanyNameFlag: false,
+    bankAccountRef: '',
   }
-  const { token, setAppParams } = useApp()
+  const { token, setAppParams, syncFlag, portalConnectionStatus } = useApp()
+  // Skip the /bank-account fetch when QB isn't connected or sync is off, same
+  // rationale as useAccountMapping's isDisconnected.
+  const isDisconnected = !syncFlag || !portalConnectionStatus
   const [settingState, setSettingState] = useState<InvoiceSettingType>(
     initialInvoiceSetting,
   )
   const [showButton, setShowButton] = useState(false)
+  const [showBankDepositWarning, setShowBankDepositWarning] = useState(false)
   const [intialSettingState, setIntialSettingState] = useState<
     InvoiceSettingType | undefined
   >()
@@ -448,26 +452,48 @@ export const useInvoiceDetailSettings = () => {
     isLoading,
   } = useSwrHelper(`/api/quickbooks/setting?type=invoice&token=${token}`)
 
-  const changeSettings = async (
-    flag: keyof InvoiceSettingType,
-    state: boolean,
-  ) => {
-    setSettingState((prev) => ({
-      ...prev,
-      [flag]: state,
+  // AB gate from the settings GET; hides the bank deposit UI when off.
+  const bankDepositEnabled = setting?.bankDepositEnabled ?? false
+
+  const { data: bankAccountsData, error: bankAccountsError } = useSwrHelper<{
+    accounts: { Id: string; Name: string }[]
+  }>(
+    isDisconnected || !bankDepositEnabled
+      ? null
+      : `/api/quickbooks/setting/bank-account?token=${token}`,
+    { suspense: false, revalidateOnMount: true },
+  )
+  const bankAccountOptions: AccountOption[] | undefined =
+    bankAccountsData?.accounts.map((account) => ({
+      id: account.Id,
+      name: account.Name,
     }))
+
+  const changeSettings = async <K extends keyof InvoiceSettingType>(
+    flag: K,
+    value: InvoiceSettingType[K],
+  ) => {
+    setSettingState((prev) => ({ ...prev, [flag]: value }))
   }
+
+  const canSave = !(
+    settingState.bankDepositFeeFlag && !settingState.bankAccountRef
+  )
 
   useEffect(() => {
     if (!settingState || !intialSettingState) return
     const showButton = !equal(intialSettingState, settingState)
     setShowButton(showButton)
-  }, [settingState])
+  }, [settingState, intialSettingState])
 
   useEffect(() => {
     if (setting && setting?.setting) {
-      setSettingState(setting.setting)
-      setIntialSettingState(structuredClone(setting.setting))
+      const hydratedSetting = {
+        ...setting.setting,
+        bankAccountRef: setting.bankAccountRef ?? '',
+      }
+      setSettingState(hydratedSetting)
+      setIntialSettingState(structuredClone(hydratedSetting))
       setAppParams((prev) => ({
         ...prev,
         initialInvoiceSettingMapFlag: setting.setting.initialInvoiceSettingMap,
@@ -477,7 +503,7 @@ export const useInvoiceDetailSettings = () => {
           setting.setting.initialProductSettingMap,
       }))
     }
-  }, [setting])
+  }, [setting, setAppParams])
 
   const submitInvoiceSettings = async () => {
     setShowButton(false)
@@ -500,14 +526,41 @@ export const useInvoiceDetailSettings = () => {
     setSettingState(intialSettingState || initialInvoiceSetting)
   }
 
+  // Warn only when the bank-deposit flag actually changed vs the saved value.
+  const bankDepositFlagChanged =
+    !!intialSettingState &&
+    settingState.bankDepositFeeFlag !== intialSettingState.bankDepositFeeFlag
+
+  const requestInvoiceSettingsSave = () => {
+    if (bankDepositFlagChanged) {
+      setShowBankDepositWarning(true)
+      return
+    }
+    submitInvoiceSettings()
+  }
+
+  const confirmBankDepositChange = () => {
+    setShowBankDepositWarning(false)
+    submitInvoiceSettings()
+  }
+
+  const cancelBankDepositChange = () => setShowBankDepositWarning(false)
+
   return {
     settingState,
     changeSettings,
-    submitInvoiceSettings,
     cancelInvoiceSettings,
     error,
     isLoading,
     showButton,
+    bankDepositEnabled,
+    bankAccountOptions,
+    bankAccountsError,
+    canSave,
+    showBankDepositWarning,
+    requestInvoiceSettingsSave,
+    confirmBankDepositChange,
+    cancelBankDepositChange,
   }
 }
 

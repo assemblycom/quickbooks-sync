@@ -65,6 +65,9 @@ const describeAction = (entityType?: string, eventType?: string): string => {
   if (entityType === 'payment' && eventType === 'succeeded') {
     return 'invoice fees creation'
   }
+  if (entityType === 'payout' && eventType === 'settled') {
+    return 'payout reconciliation'
+  }
   const eventNoun =
     (
       {
@@ -234,6 +237,33 @@ export const NotificationCopy: Record<
     emailSubject: 'QuickBooks sync failed: item is missing an income account',
     emailBody: (ref) =>
       `A sync failed${ref} because a QuickBooks item has no income account assigned. This usually happens when the item was created in QuickBooks without an income account, or the account was removed afterwards. Open Products and Services in QuickBooks, edit the item, and set its income account. The next scheduled retry (within a few hours) will pick it up automatically.`,
+  },
+
+  // A Stripe payout straddled a bank-deposit setting change, so it contains
+  // both batched and non-batched invoices. We can't book one balanced deposit
+  // from a mix, so no deposit is created and the payout needs manual handling.
+  // Terminal — there is no scheduled retry for payouts.
+  [NotificationActions.QB_PAYOUT_MIXED_INTENT]: {
+    title: 'QuickBooks sync failed: payout needs manual reconciliation',
+    body: (ref, ctx) => {
+      const forInvoices = ctx?.invoiceNumbers
+        ? ` for invoices ${ctx.invoiceNumbers}`
+        : ''
+      const recordedFees = ctx?.invoiceNumbersWithFee
+        ? ` The Stripe fees for ${ctx.invoiceNumbersWithFee} are already recorded as expenses in QuickBooks, so do not record those fees again.`
+        : ''
+      return `A Stripe payout${ref} could not be recorded in QuickBooks because it mixes invoices set to batch into a bank deposit with invoices that are not — this happens when the bank-deposit setting changed between a payment and its payout. No deposit was created${forInvoices}. The payments are already recorded in QuickBooks; they just haven't been grouped into a bank deposit.${recordedFees} Record this payout's deposit manually in QuickBooks. This will not be retried automatically.`
+    },
+    emailSubject: 'QuickBooks sync failed: payout needs manual reconciliation',
+    emailBody: (ref, ctx) => {
+      const forInvoices = ctx?.invoiceNumbers
+        ? ` for invoices ${ctx.invoiceNumbers}`
+        : ''
+      const recordedFees = ctx?.invoiceNumbersWithFee
+        ? ` The Stripe fees for ${ctx.invoiceNumbersWithFee} are already recorded as expenses in QuickBooks, so do not record those fees again.`
+        : ''
+      return `A Stripe payout${ref} could not be recorded in QuickBooks because it mixes invoices set to batch into a bank deposit with invoices that are not. This happens when the bank-deposit setting changed between a payment and its payout. No deposit was created${forInvoices}. The payments are already recorded in QuickBooks; they just haven't been grouped into a bank deposit.${recordedFees} Record this payout's deposit manually in QuickBooks. This payout will not be retried automatically.`
+    },
   },
 
   [NotificationActions.QB_INVALID_ACCOUNT_TYPE]: {

@@ -1,0 +1,68 @@
+import { describe, it, expect } from 'vitest'
+import { eq } from 'drizzle-orm'
+
+import { db } from '@/db'
+import { QBSyncLog } from '@/db/schema/qbSyncLogs'
+import { EntityType, EventType, LogStatus } from '@/app/api/core/types/log'
+
+import { payoutPayload } from '@test/fixtures/payout.webhook'
+import {
+  seedHealthyPortal,
+  seedPaidInvoiceForPayout,
+  TEST_PORTAL_ID,
+  TEST_COPILOT_INVOICE_ID,
+  TEST_BANK_ACCOUNT_REF,
+  TEST_EXPENSE_ACCOUNT_REF,
+} from '@test/helpers/seed'
+import { setupPaymentSucceededTest } from '@test/helpers/paymentSucceededTestSetup'
+import { postWebhook } from '@test/helpers/webhook'
+
+describe('payout — one invoice has no PAID sync log', () => {
+  const apis = setupPaymentSucceededTest()
+
+  it('aborts the deposit and logs a failed payout/settled entry', async () => {
+    // Seed the bank + expense account refs so the handler's missing-
+    // bankAccountRef guard can't be what trips instead of the guard under test.
+    await seedHealthyPortal({
+      portal: {
+        bankAccountRef: TEST_BANK_ACCOUNT_REF,
+        expenseAccountRef: TEST_EXPENSE_ACCOUNT_REF,
+      },
+      setting: { absorbedFeeFlag: true, bankDepositFeeFlag: true },
+    })
+    // Only the first invoice is fully synced; inv-cop-0002 has no PAID sync
+    // log / invoice-sync row, so the handler can't resolve it to a payment id.
+    await seedPaidInvoiceForPayout({
+      copilotInvoiceId: TEST_COPILOT_INVOICE_ID,
+      invoiceNumber: 'INV-A',
+      paymentId: 'qbpay_A',
+      isBatchedDeposit: true,
+    })
+
+    const res = await postWebhook(payoutPayload)
+    expect(res.status).toBe(200)
+
+    expect(apis.intuit.createDeposit).not.toHaveBeenCalled()
+    // Guard trips before any QBO round-trip, so account verification never runs.
+    expect(apis.intuit.getAnAccount).not.toHaveBeenCalled()
+
+    const logs = await db
+      .select()
+      .from(QBSyncLog)
+      .where(eq(QBSyncLog.copilotId, 'po_test_1'))
+    expect(logs).toHaveLength(1)
+    expect(logs[0]).toMatchObject({
+      portalId: TEST_PORTAL_ID,
+      entityType: EntityType.PAYOUT,
+      eventType: EventType.SETTLED,
+      status: LogStatus.FAILED,
+      // The invoice.paid event may not have saved yet, so retry.
+      shouldRetry: true,
+    })
+    // Pins the abort to the unresolved-line guard specifically — not the
+    // refund guard, the sum-mismatch guard, or the bankAccountRef guard.
+    expect(logs[0].errorMessage).toContain(
+      'no SUCCESS INVOICE/PAID sync log for invoices [inv-cop-0002]',
+    )
+  })
+})
