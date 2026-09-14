@@ -12,6 +12,13 @@ import {
   QBPortalConnectionUpdateSchemaType,
 } from '@/db/schema/qbPortalConnections'
 import { QBSetting, QBSettingsUpdateSchemaType } from '@/db/schema/qbSettings'
+import { QBCustomers } from '@/db/schema/qbCustomers'
+import { QBInvoiceSync } from '@/db/schema/qbInvoiceSync'
+import { QBPaymentSync } from '@/db/schema/qbPaymentSync'
+import { QBProductSync } from '@/db/schema/qbProductSync'
+import { QBPayoutSync } from '@/db/schema/qbPayoutSync'
+import { QBSyncLog } from '@/db/schema/qbSyncLogs'
+import { QBConnectionLogs } from '@/db/schema/qbConnectionLogs'
 import { getPortalConnection } from '@/db/service/token.service'
 import {
   AccountRefsUpdateSchema,
@@ -133,6 +140,27 @@ export class TokenService extends BaseService {
       )
     }
     return updateSync
+  }
+
+  // Wipe the connection + all realm-scoped rows in one tx so the portal can
+  // re-authorize a different company cleanly.
+  async resetConnection() {
+    const portalId = this.user.workspaceId
+    await this.withTransaction(async (tx) => {
+      await tx
+        .delete(QBConnectionLogs)
+        .where(eq(QBConnectionLogs.portalId, portalId))
+      await tx.delete(QBSyncLog).where(eq(QBSyncLog.portalId, portalId))
+      await tx.delete(QBPayoutSync).where(eq(QBPayoutSync.portalId, portalId))
+      await tx.delete(QBPaymentSync).where(eq(QBPaymentSync.portalId, portalId))
+      await tx.delete(QBInvoiceSync).where(eq(QBInvoiceSync.portalId, portalId))
+      await tx.delete(QBCustomers).where(eq(QBCustomers.portalId, portalId))
+      await tx.delete(QBProductSync).where(eq(QBProductSync.portalId, portalId))
+      await tx.delete(QBSetting).where(eq(QBSetting.portalId, portalId))
+      await tx
+        .delete(QBPortalConnection)
+        .where(eq(QBPortalConnection.portalId, portalId))
+    })
   }
 
   async changeEnableStatus(
