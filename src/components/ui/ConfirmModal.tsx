@@ -11,6 +11,8 @@ type ConfirmModalProps = {
   cancelLabel?: string
   onConfirm: () => void
   onCancel: () => void
+  // While true, the action is in flight: dismissal and both buttons are locked.
+  busy?: boolean
 }
 
 export default function ConfirmModal({
@@ -21,6 +23,7 @@ export default function ConfirmModal({
   cancelLabel = 'Cancel',
   onConfirm,
   onCancel,
+  busy = false,
 }: ConfirmModalProps) {
   const titleId = useId()
   const descId = useId()
@@ -39,7 +42,7 @@ export default function ConfirmModal({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') return onCancel()
+      if (e.key === 'Escape') return busy ? undefined : onCancel()
       if (e.key !== 'Tab') return
       const buttons = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>('button') ?? [],
@@ -57,14 +60,14 @@ export default function ConfirmModal({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onCancel])
+  }, [open, onCancel, busy])
 
   if (!open) return null
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onCancel}
+      onClick={busy ? undefined : onCancel}
     >
       <div
         ref={dialogRef}
@@ -82,8 +85,18 @@ export default function ConfirmModal({
           {description}
         </p>
         <div className="flex justify-end gap-2">
-          <Button label={cancelLabel} variant="text" onClick={onCancel} />
-          <Button label={confirmLabel} variant="primary" onClick={onConfirm} />
+          <Button
+            label={cancelLabel}
+            variant="text"
+            onClick={onCancel}
+            disabled={busy}
+          />
+          <Button
+            label={confirmLabel}
+            variant="primary"
+            onClick={onConfirm}
+            disabled={busy}
+          />
         </div>
       </div>
     </div>,
