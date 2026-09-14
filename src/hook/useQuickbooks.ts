@@ -287,7 +287,7 @@ export const useAppBridge = ({
   connectionStatus: boolean | null
   onReset: () => void
 }) => {
-  const disconnectAction = async () => {
+  const disableAction = async () => {
     const payload = {
       enable: false,
     }
@@ -295,7 +295,7 @@ export const useAppBridge = ({
     try {
       await postFetcher(url, {}, payload, { timeoutMs: null })
     } catch (err) {
-      console.error('Error disconnecting QuickBooks account', err)
+      console.error('Error disabling QuickBooks account', err)
     }
   }
 
@@ -326,9 +326,9 @@ export const useAppBridge = ({
     ...(isConnected && isEnabled && syncFlag
       ? [
           {
-            label: 'Disconnect account',
+            label: 'Disable account',
             icon: 'Disconnect' as Icons,
-            onClick: disconnectAction,
+            onClick: disableAction,
           },
         ]
       : []),
