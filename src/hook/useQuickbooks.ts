@@ -278,11 +278,14 @@ export const useAppBridge = ({
   isEnabled,
   syncFlag,
   connectionStatus,
+  onReset,
 }: {
   token: string
   isEnabled: boolean | null
   syncFlag: boolean
-  connectionStatus: boolean
+  // Tri-state: true = connected, false = no connection, null = live auth error.
+  connectionStatus: boolean | null
+  onReset: () => void
 }) => {
   const disconnectAction = async () => {
     const payload = {
@@ -305,24 +308,39 @@ export const useAppBridge = ({
     link.click()
     link.remove()
   }
-  let actions: { label: string; icon?: Icons; onClick: () => Promise<void> }[] =
-    []
-  if (connectionStatus) {
-    actions = [
-      {
-        label: 'Download sync history',
-        icon: 'Download',
-        onClick: downloadCsvAction,
-      },
-    ]
 
-    if (isEnabled && syncFlag) {
-      actions.push({
-        label: 'Disconnect account',
-        icon: 'Disconnect',
-        onClick: disconnectAction,
-      })
-    }
-  }
+  type Action = { label: string; icon?: Icons; onClick: () => Promise<void> }
+  const isConnected = connectionStatus === true
+  // Reset stays available in the error state (null) too — hidden only once truly disconnected.
+  const canReset = connectionStatus !== false
+  const actions: Action[] = [
+    ...(isConnected
+      ? [
+          {
+            label: 'Download sync history',
+            icon: 'Download' as Icons,
+            onClick: downloadCsvAction,
+          },
+        ]
+      : []),
+    ...(isConnected && isEnabled && syncFlag
+      ? [
+          {
+            label: 'Disconnect account',
+            icon: 'Disconnect' as Icons,
+            onClick: disconnectAction,
+          },
+        ]
+      : []),
+    ...(canReset
+      ? [
+          {
+            label: 'Reset connection',
+            icon: 'Trash' as Icons,
+            onClick: async () => onReset(),
+          },
+        ]
+      : []),
+  ]
   useActionsMenu(actions)
 }
