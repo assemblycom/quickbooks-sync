@@ -10,6 +10,7 @@ export default function HomeClient() {
   const { token, portalConnectionStatus, isEnabled, syncFlag, setAppParams } =
     useApp()
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
 
   // bridge related logics like disconnect app, reset connection and download sync log csv
   useAppBridge({
@@ -21,7 +22,8 @@ export default function HomeClient() {
   })
 
   const confirmReset = async () => {
-    setShowResetConfirm(false)
+    if (isResetting) return
+    setIsResetting(true)
     try {
       await postFetcher(
         `/api/quickbooks/token/reset-connection?token=${token}`,
@@ -29,15 +31,21 @@ export default function HomeClient() {
         {},
         { timeoutMs: null },
       )
-      // Realtime subs only track UPDATE, not DELETE — reset local state here.
+      // Realtime subs only track UPDATE, not DELETE — reset connection-derived
+      // state here (nonUsCompany would otherwise keep the Connect button disabled).
       setAppParams((prev) => ({
         ...prev,
         portalConnectionStatus: false,
         syncFlag: false,
         isEnabled: false,
+        nonUsCompany: false,
       }))
+      setShowResetConfirm(false)
     } catch (err) {
+      // Leave the modal open on failure so the user can retry.
       console.error('Error resetting QuickBooks connection', err)
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -48,7 +56,7 @@ export default function HomeClient() {
         open={showResetConfirm}
         title="Reset QuickBooks connection?"
         description="This removes the connected QuickBooks company and all synced mappings for this workspace. You'll need to reconnect and re-map your accounts. This can't be undone."
-        confirmLabel="Reset connection"
+        confirmLabel={isResetting ? 'Resetting...' : 'Reset connection'}
         onConfirm={confirmReset}
         onCancel={() => setShowResetConfirm(false)}
       />

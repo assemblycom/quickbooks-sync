@@ -27,6 +27,19 @@ import {
 
 const OTHER_PORTAL_ID = 'other-portal-99999999'
 
+// Every portal-scoped table the reset wipes.
+const PORTAL_SCOPED_TABLES = [
+  QBPortalConnection,
+  QBSetting,
+  QBCustomers,
+  QBInvoiceSync,
+  QBPaymentSync,
+  QBProductSync,
+  QBPayoutSync,
+  QBSyncLog,
+  QBConnectionLogs,
+]
+
 // Seeds one row in every portal-scoped table for the given portal.
 async function seedFullPortal(portalId: string) {
   await seedHealthyPortal({
@@ -77,18 +90,7 @@ describe('POST /api/quickbooks/token/reset-connection', () => {
       },
     })
 
-    const tables = [
-      QBPortalConnection,
-      QBSetting,
-      QBCustomers,
-      QBInvoiceSync,
-      QBPaymentSync,
-      QBProductSync,
-      QBPayoutSync,
-      QBSyncLog,
-      QBConnectionLogs,
-    ]
-    for (const t of tables) {
+    for (const t of PORTAL_SCOPED_TABLES) {
       const rows = await db
         .select()
         .from(t)
@@ -110,16 +112,13 @@ describe('POST /api/quickbooks/token/reset-connection', () => {
       },
     })
 
-    const [otherConnection] = await db
-      .select()
-      .from(QBPortalConnection)
-      .where(eq(QBPortalConnection.portalId, OTHER_PORTAL_ID))
-    expect(otherConnection).toBeDefined()
-
-    const otherCustomers = await db
-      .select()
-      .from(QBCustomers)
-      .where(eq(QBCustomers.portalId, OTHER_PORTAL_ID))
-    expect(otherCustomers.length).toBeGreaterThan(0)
+    // The other portal keeps its row in every table the reset touches.
+    for (const t of PORTAL_SCOPED_TABLES) {
+      const rows = await db
+        .select()
+        .from(t)
+        .where(eq(t.portalId, OTHER_PORTAL_ID))
+      expect(rows).toHaveLength(1)
+    }
   })
 })
