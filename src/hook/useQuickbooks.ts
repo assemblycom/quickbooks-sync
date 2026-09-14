@@ -326,7 +326,7 @@ export const useAppBridge = ({
     ...(isConnected && isEnabled && syncFlag
       ? [
           {
-            label: 'Disable account',
+            label: 'Disable sync',
             icon: 'Disconnect' as Icons,
             onClick: disableAction,
           },
