@@ -10,6 +10,13 @@ export async function checkPortalConnection(req: NextRequest) {
   return NextResponse.json(portalSync)
 }
 
+export async function resetConnection(req: NextRequest) {
+  const user = await authenticate(req)
+  const tokenService = new TokenService(user)
+  await tokenService.resetConnection()
+  return NextResponse.json({ success: true })
+}
+
 export async function changeEnableStatus(req: NextRequest) {
   const user = await authenticate(req)
   const body = await req.json()
