@@ -7,8 +7,7 @@ import { postFetcher } from '@/helper/fetch.helper'
 import { useAppBridge } from '@/hook/useQuickbooks'
 
 export default function HomeClient() {
-  const { token, portalConnectionStatus, isEnabled, syncFlag, setAppParams } =
-    useApp()
+  const { token, portalConnectionStatus, isEnabled, syncFlag } = useApp()
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
 
@@ -31,20 +30,12 @@ export default function HomeClient() {
         {},
         { timeoutMs: null },
       )
-      // Realtime subs only track UPDATE, not DELETE — reset connection-derived
-      // state here (nonUsCompany would otherwise keep the Connect button disabled).
-      setAppParams((prev) => ({
-        ...prev,
-        portalConnectionStatus: false,
-        syncFlag: false,
-        isEnabled: false,
-        nonUsCompany: false,
-      }))
-      setShowResetConfirm(false)
+      // Reload for a fresh AppContext + SWR cache instead of hand-clearing each
+      // connection-derived field; the deleted realm's data must not linger.
+      window.location.reload()
     } catch (err) {
-      // Leave the modal open on failure so the user can retry.
+      // Leave the modal open and interactive on failure so the user can retry.
       console.error('Error resetting QuickBooks connection', err)
-    } finally {
       setIsResetting(false)
     }
   }
@@ -57,6 +48,7 @@ export default function HomeClient() {
         title="Reset QuickBooks connection?"
         description="This removes the connected QuickBooks company and all synced mappings for this workspace. You'll need to reconnect and re-map your accounts. This can't be undone."
         confirmLabel={isResetting ? 'Resetting...' : 'Reset connection'}
+        busy={isResetting}
         onConfirm={confirmReset}
         onCancel={() => setShowResetConfirm(false)}
       />
