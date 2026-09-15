@@ -1,6 +1,7 @@
 name: Lint
 
-on: push
+# pull_request covers fork PRs too; merges to master are checked by deploy.yml.
+on: pull_request
 
 # Actions pinned to full commit SHAs: tags are mutable and can be moved
 # after a compromise. Bump SHA + version comment together.
