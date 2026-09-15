@@ -4,11 +4,6 @@ on:
   push:
     branches: [master]
 
-# Newer push to master supersedes an in-flight deploy run.
-concurrency:
-  group: deploy-production
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
@@ -85,6 +80,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     timeout-minutes: 20
+    # Serialize deploys and never cancel one mid-publish: a newer push waits
+    # rather than interrupting an in-flight production deploy.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
 
     steps:
       - name: Check out Git repository
