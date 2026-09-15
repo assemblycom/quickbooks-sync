@@ -1,0 +1,109 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+# Preserve commit order; never cancel an in-flight production deploy.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: Typecheck tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: yarn
+          cache-dependency-path: './yarn.lock'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Typecheck test files
+        run: yarn typecheck:test
+
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: yarn
+          cache-dependency-path: './yarn.lock'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run tests
+        run: yarn test
+
+  lint:
+    name: Run linters
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: yarn
+          cache-dependency-path: './yarn.lock'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run linters
+        run: yarn lint:check && yarn prettier:check
+
+  deploy:
+    name: Deploy to Trigger.dev
+    needs: [typecheck, test, lint]
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: yarn
+          cache-dependency-path: './yarn.lock'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Deploy to Trigger.dev production
+        run: yarn trigger:deploy
+        env:
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          TRIGGER_PROJECT_ID: ${{ secrets.TRIGGER_PROJECT_ID }}
+          VERCEL_ENV: production
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
