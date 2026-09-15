@@ -100,7 +100,20 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      # Skip if a newer commit already landed on the branch, so a slower older
+      # run can't publish stale code over a newer deploy.
+      - name: Skip if a newer commit is on the branch
+        id: freshness
+        run: |
+          git fetch --depth=1 origin "$GITHUB_REF_NAME"
+          latest="$(git rev-parse FETCH_HEAD)"
+          if [ "$GITHUB_SHA" != "$latest" ]; then
+            echo "Newer commit $latest on $GITHUB_REF_NAME; skipping stale deploy of $GITHUB_SHA."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy to Trigger.dev production
+        if: steps.freshness.outputs.skip != 'true'
         run: yarn trigger:deploy
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
