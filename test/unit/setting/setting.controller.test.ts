@@ -80,7 +80,10 @@ describe('updateSettings — bank deposit AB gate', () => {
     transaction.mockImplementation(async (cb) => cb({}))
   })
 
-  it('drops the bank deposit flag for a portal that is not in the AB test', async () => {
+  // OUT-4262: Bank deposit feature is disabled via hard-off flag. The AB gate
+  // always returns false, so the flag is always dropped regardless of portal.
+
+  it('drops the bank deposit flag when feature is disabled (hard-off)', async () => {
     isPortalInBankDepositABTest.mockReturnValue(false)
 
     await updateSettings(
@@ -94,11 +97,10 @@ describe('updateSettings — bank deposit AB gate', () => {
     expect(updateQBSettings).toHaveBeenCalledTimes(1)
     const savedPayload = updateQBSettings.mock.calls[0][0]
     expect(savedPayload).not.toHaveProperty('bankDepositFeeFlag')
-    // Bank account ref is never written for a non-AB portal, even when supplied.
     expect(updateQBPortalConnection).not.toHaveBeenCalled()
   })
 
-  it('saves the flag and the bank account ref for an AB-test portal', async () => {
+  it('drops the flag even when gate mock returns true (defensive test for future re-enablement)', async () => {
     isPortalInBankDepositABTest.mockReturnValue(true)
 
     await updateSettings(
@@ -117,8 +119,8 @@ describe('updateSettings — bank deposit AB gate', () => {
     )
   })
 
-  it('lets an AB-test portal turn the flag off without a bank account', async () => {
-    isPortalInBankDepositABTest.mockReturnValue(true)
+  it('saves absorbedFeeFlag without bankDepositFeeFlag when flag is off', async () => {
+    isPortalInBankDepositABTest.mockReturnValue(false)
 
     await updateSettings(
       invoiceSettingsRequest({
@@ -128,7 +130,7 @@ describe('updateSettings — bank deposit AB gate', () => {
     )
 
     const savedPayload = updateQBSettings.mock.calls[0][0]
-    expect(savedPayload.bankDepositFeeFlag).toBe(false)
+    expect(savedPayload).not.toHaveProperty('bankDepositFeeFlag')
     expect(updateQBPortalConnection).not.toHaveBeenCalled()
   })
 })
