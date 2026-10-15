@@ -100,7 +100,7 @@ describe('updateSettings — bank deposit AB gate', () => {
     expect(updateQBPortalConnection).not.toHaveBeenCalled()
   })
 
-  it('drops the flag even when gate mock returns true (defensive test for future re-enablement)', async () => {
+  it('saves the flag and bank account when the gate returns true', async () => {
     isPortalInBankDepositABTest.mockReturnValue(true)
 
     await updateSettings(

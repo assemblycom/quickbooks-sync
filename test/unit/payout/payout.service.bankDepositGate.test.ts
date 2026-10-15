@@ -1,7 +1,11 @@
 /**
- * AB-gate coverage for PayoutService#reconcile — the deposit-creating step,
- * shared by the payout webhook and the resync cron. An excluded portal must
- * short-circuit to { depositId: null } before any token check or QBO call.
+ * Coverage for PayoutService#reconcile — the deposit-creating step, shared by
+ * the payout webhook and the resync cron.
+ *
+ * OUT-4262: The AB gate was removed from this method so existing invoices with
+ * isBatchedDeposit=true can still have their deposits created and Stripe fees
+ * booked. The freeze point (InvoiceService#readBankDepositFeeFlag) blocks new
+ * invoices from being batched, so this method naturally winds down.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -15,7 +19,6 @@ vi.mock('@sentry/nextjs', () => ({
   addBreadcrumb: vi.fn(),
   init: vi.fn(),
 }))
-// BaseService imports `@/db`, which initialises postgres at module load.
 vi.mock('@/db', () => ({ db: {}, client: {} }))
 vi.mock('@/utils/assemblyAPI', () => ({ AssemblyAPI: vi.fn() }))
 vi.mock('@/utils/intuitAPI', () => ({ default: vi.fn() }))
@@ -25,12 +28,10 @@ vi.mock('@/app/api/quickbooks/syncLog/syncLog.service', () => ({
   }),
 }))
 
-const { validateAccessToken, isPortalInBankDepositABTest } = vi.hoisted(() => ({
+const { validateAccessToken } = vi.hoisted(() => ({
   validateAccessToken: vi.fn(),
-  isPortalInBankDepositABTest: vi.fn(),
 }))
 vi.mock('@/utils/auth', () => ({ validateAccessToken }))
-vi.mock('@/utils/abTesting', () => ({ isPortalInBankDepositABTest }))
 
 import { PayoutService } from '@/app/api/quickbooks/payout/payout.service'
 import User from '@/app/api/core/models/User.model'
@@ -41,36 +42,22 @@ const stubRow = {
 } as unknown as QBPayoutSyncSelectSchemaType
 const stubTokens = {} as IntuitAPITokensType
 
-describe('PayoutService#reconcile — AB gate', () => {
+describe('PayoutService#reconcile — no AB gate (OUT-4262)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('short-circuits to no deposit for an excluded portal without checking the token', async () => {
-    isPortalInBankDepositABTest.mockReturnValue(false)
-
-    const result = await new PayoutService(stubUser).reconcile(
-      stubRow,
-      stubTokens,
-      { runIdempotencyCheck: true },
-    )
-
-    expect(result).toEqual({ depositId: null })
-    expect(validateAccessToken).not.toHaveBeenCalled()
-  })
-
-  it('proceeds past the gate for an allowlisted portal', async () => {
-    isPortalInBankDepositABTest.mockReturnValue(true)
-    // Force a stop right after the gate so we assert only that it advanced.
+  it('proceeds directly to token validation without an AB gate check', async () => {
+    // Force a stop at token validation to confirm the method proceeds.
     validateAccessToken.mockImplementation(() => {
-      throw new Error('advanced past gate')
+      throw new Error('advanced to token validation')
     })
 
     await expect(
       new PayoutService(stubUser).reconcile(stubRow, stubTokens, {
         runIdempotencyCheck: true,
       }),
-    ).rejects.toThrow('advanced past gate')
+    ).rejects.toThrow('advanced to token validation')
     expect(validateAccessToken).toHaveBeenCalledTimes(1)
   })
 })

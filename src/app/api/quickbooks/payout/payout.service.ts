@@ -19,7 +19,6 @@ import IntuitAPI, { IntuitAPITokensType } from '@/utils/intuitAPI'
 import { AccountTypeObj } from '@/constant/qbConnection'
 import { validateAccessToken } from '@/utils/auth'
 import User from '@/app/api/core/models/User.model'
-import { isPortalInBankDepositABTest } from '@/utils/abTesting'
 
 export class PayoutService extends BaseService {
   private syncLogService: SyncLogService
@@ -80,20 +79,17 @@ export class PayoutService extends BaseService {
   // Checks the payout, finds its payments, then builds and creates the deposit.
   // Neither caller claims again. Returns { depositId: null } when there is
   // nothing to deposit.
+  //
+  // NOTE (OUT-4262): The AB gate was removed from this method so existing
+  // invoices with isBatchedDeposit=true can still have their deposits created
+  // and Stripe fees booked. New invoices freeze as non-batched (the freeze
+  // point in InvoiceService#readBankDepositFeeFlag returns false), so this
+  // method will naturally receive only non-batched payouts going forward.
   async reconcile(
     row: QBPayoutSyncSelectSchemaType,
     qbTokenInfo: IntuitAPITokensType,
     opts: { runIdempotencyCheck: boolean },
   ): Promise<{ depositId: string | null }> {
-    // AB gate: covers both callers (payout webhook + resync cron). Only fires
-    // for an explicitly excluded portal (empty allowlist = all portals). Logged
-    // rather than silent so a rare mid-flight exclusion is visible in Sentry.
-    if (!isPortalInBankDepositABTest(this.user.workspaceId)) {
-      console.info(
-        `PayoutService#reconcile | AB gate off for portal ${this.user.workspaceId}; skipping deposit for payout ${row.payoutId}`,
-      )
-      return { depositId: null }
-    }
     validateAccessToken(qbTokenInfo)
 
     const payoutId = row.payoutId
