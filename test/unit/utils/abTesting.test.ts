@@ -19,31 +19,23 @@ describe('isPortalInBankDepositABTest', () => {
     vi.unstubAllEnvs()
   })
 
-  it('allows every portal when the allowlist is unset', async () => {
+  // OUT-4262: Bank deposit feature is now disabled via hard-off flag.
+  // The following tests verify the hard-off behavior. When the feature is
+  // re-enabled, revert these to the original assertions.
+
+  it('blocks every portal when the hard-off flag is set (feature disabled)', async () => {
     const isInTest = await loadGate(undefined)
-    expect(isInTest('portal-abc')).toBe(true)
+    expect(isInTest('portal-abc')).toBe(false)
   })
 
-  it('allows every portal when the allowlist is empty', async () => {
-    const isInTest = await loadGate('')
-    expect(isInTest('portal-abc')).toBe(true)
-  })
-
-  it('allows a portal that is on the allowlist', async () => {
+  it('blocks every portal even with allowlist when hard-off is set', async () => {
     const isInTest = await loadGate('portal-abc,portal-def')
-    expect(isInTest('portal-abc')).toBe(true)
-    expect(isInTest('portal-def')).toBe(true)
+    expect(isInTest('portal-abc')).toBe(false)
+    expect(isInTest('portal-def')).toBe(false)
   })
 
-  it('blocks a portal that is not on the allowlist', async () => {
+  it('blocks portals not on allowlist when hard-off is set', async () => {
     const isInTest = await loadGate('portal-abc,portal-def')
-    expect(isInTest('portal-xyz')).toBe(false)
-  })
-
-  it('ignores surrounding whitespace and empty entries in the allowlist', async () => {
-    const isInTest = await loadGate('  portal-abc , , portal-def ,')
-    expect(isInTest('portal-abc')).toBe(true)
-    expect(isInTest('portal-def')).toBe(true)
     expect(isInTest('portal-xyz')).toBe(false)
   })
 })

@@ -3,7 +3,6 @@ import InvoiceDetail from '@/components/dashboard/settings/sections/invoice/Invo
 import AccountMapping from '@/components/dashboard/settings/sections/account/AccountMapping'
 import ProductMapping from '@/components/dashboard/settings/sections/product/ProductMapping'
 import Accordion from '@/components/ui/Accordion'
-import ConfirmModal from '@/components/ui/ConfirmModal'
 import Divider from '@/components/ui/Divider'
 import {
   useInvoiceDetailSettings,
@@ -44,14 +43,8 @@ export default function SettingAccordion({
     isLoading,
     changeSettings,
     showButton: showInvoiceButton,
-    bankDepositEnabled,
-    bankAccountOptions,
-    bankAccountsError,
     canSave,
-    showBankDepositWarning,
     requestInvoiceSettingsSave,
-    confirmBankDepositChange,
-    cancelBankDepositChange,
   } = useInvoiceDetailSettings()
 
   const {
@@ -94,9 +87,6 @@ export default function SettingAccordion({
           settingState={settingState}
           changeSettings={changeSettings}
           isLoading={isLoading}
-          bankDepositEnabled={bankDepositEnabled}
-          bankAccountOptions={bankAccountOptions}
-          bankAccountsError={bankAccountsError}
         />
       ),
     },
@@ -208,13 +198,6 @@ export default function SettingAccordion({
           </div>
         )
       })}
-      <ConfirmModal
-        open={showBankDepositWarning}
-        title="Change bank deposit setting?"
-        description="This applies only to invoices created from now on; existing invoices are unaffected. If a Stripe payout mixes invoices from before and after the change, you'll need to reconcile that payout manually in QuickBooks."
-        onConfirm={confirmBankDepositChange}
-        onCancel={cancelBankDepositChange}
-      />
     </div>
   )
 }

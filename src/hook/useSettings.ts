@@ -434,15 +434,11 @@ export const useInvoiceDetailSettings = () => {
     useCompanyNameFlag: false,
     bankAccountRef: '',
   }
-  const { token, setAppParams, syncFlag, portalConnectionStatus } = useApp()
-  // Skip the /bank-account fetch when QB isn't connected or sync is off, same
-  // rationale as useAccountMapping's isDisconnected.
-  const isDisconnected = !syncFlag || !portalConnectionStatus
+  const { token, setAppParams } = useApp()
   const [settingState, setSettingState] = useState<InvoiceSettingType>(
     initialInvoiceSetting,
   )
   const [showButton, setShowButton] = useState(false)
-  const [showBankDepositWarning, setShowBankDepositWarning] = useState(false)
   const [intialSettingState, setIntialSettingState] = useState<
     InvoiceSettingType | undefined
   >()
@@ -452,23 +448,6 @@ export const useInvoiceDetailSettings = () => {
     isLoading,
   } = useSwrHelper(`/api/quickbooks/setting?type=invoice&token=${token}`)
 
-  // AB gate from the settings GET; hides the bank deposit UI when off.
-  const bankDepositEnabled = setting?.bankDepositEnabled ?? false
-
-  const { data: bankAccountsData, error: bankAccountsError } = useSwrHelper<{
-    accounts: { Id: string; Name: string }[]
-  }>(
-    isDisconnected || !bankDepositEnabled
-      ? null
-      : `/api/quickbooks/setting/bank-account?token=${token}`,
-    { suspense: false, revalidateOnMount: true },
-  )
-  const bankAccountOptions: AccountOption[] | undefined =
-    bankAccountsData?.accounts.map((account) => ({
-      id: account.Id,
-      name: account.Name,
-    }))
-
   const changeSettings = async <K extends keyof InvoiceSettingType>(
     flag: K,
     value: InvoiceSettingType[K],
@@ -476,9 +455,8 @@ export const useInvoiceDetailSettings = () => {
     setSettingState((prev) => ({ ...prev, [flag]: value }))
   }
 
-  const canSave = !(
-    settingState.bankDepositFeeFlag && !settingState.bankAccountRef
-  )
+  // Bank deposit feature disabled (OUT-4262), so canSave is always true.
+  const canSave = true
 
   useEffect(() => {
     if (!settingState || !intialSettingState) return
@@ -516,7 +494,7 @@ export const useInvoiceDetailSettings = () => {
       )
       mutate(`/api/quickbooks/setting?type=invoice&token=${token}`)
     } catch (err) {
-      setShowButton(true) // show the update settings button if error
+      setShowButton(true)
       console.error('Error submitting Invoice settings', err)
     }
   }
@@ -526,26 +504,6 @@ export const useInvoiceDetailSettings = () => {
     setSettingState(intialSettingState || initialInvoiceSetting)
   }
 
-  // Warn only when the bank-deposit flag actually changed vs the saved value.
-  const bankDepositFlagChanged =
-    !!intialSettingState &&
-    settingState.bankDepositFeeFlag !== intialSettingState.bankDepositFeeFlag
-
-  const requestInvoiceSettingsSave = () => {
-    if (bankDepositFlagChanged) {
-      setShowBankDepositWarning(true)
-      return
-    }
-    submitInvoiceSettings()
-  }
-
-  const confirmBankDepositChange = () => {
-    setShowBankDepositWarning(false)
-    submitInvoiceSettings()
-  }
-
-  const cancelBankDepositChange = () => setShowBankDepositWarning(false)
-
   return {
     settingState,
     changeSettings,
@@ -553,14 +511,8 @@ export const useInvoiceDetailSettings = () => {
     error,
     isLoading,
     showButton,
-    bankDepositEnabled,
-    bankAccountOptions,
-    bankAccountsError,
     canSave,
-    showBankDepositWarning,
-    requestInvoiceSettingsSave,
-    confirmBankDepositChange,
-    cancelBankDepositChange,
+    requestInvoiceSettingsSave: submitInvoiceSettings,
   }
 }
 
