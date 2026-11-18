@@ -223,7 +223,7 @@ export type NotificationCreatedResponse = z.infer<
 export const ProductResponseSchema = z.object({
   id: z.string(),
   name: z.string(),
-  imageUrls: z.array(z.string()),
+  imageUrls: z.array(z.string()).nullish(),
   description: z.string(),
   status: z.nativeEnum(ProductStatus),
   object: z.string(),
