@@ -96,7 +96,8 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
           Sentry.captureException(error)
         })
       } else if (
-        error instanceof APIError ||
+        (error instanceof APIError &&
+          error.status !== httpStatus.UNAUTHORIZED) ||
         error instanceof CopilotApiError ||
         error instanceof HttpFetchError ||
         isAxiosError(error) ||
