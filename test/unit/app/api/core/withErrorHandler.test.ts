@@ -43,6 +43,7 @@ describe('withErrorHandler', () => {
     expect(captureException).toHaveBeenCalledTimes(1)
     expect(scope.setLevel).toHaveBeenCalledWith('warning')
     expect(scope.setFingerprint).toHaveBeenCalledWith(['api-auth-rejection'])
+    expect(scope.setTag).toHaveBeenCalledWith('authRejection', 'true')
   })
 
   it.each([

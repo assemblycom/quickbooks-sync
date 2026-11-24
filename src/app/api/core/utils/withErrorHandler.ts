@@ -101,6 +101,7 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
       ) {
         Sentry.withScope((scope) => {
           scope.setLevel('warning')
+          scope.setTag('authRejection', 'true')
           scope.setFingerprint(['api-auth-rejection'])
           Sentry.captureException(error)
         })
