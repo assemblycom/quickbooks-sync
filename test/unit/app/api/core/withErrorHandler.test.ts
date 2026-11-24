@@ -11,6 +11,8 @@ vi.mock('@sentry/nextjs', () => ({
 }))
 
 import APIError from '@/app/api/core/exceptions/api'
+import { CopilotApiError } from '@/type/CopilotApiError'
+import { HttpFetchError } from '@/utils/error'
 import { withErrorHandler } from '@/app/api/core/utils/withErrorHandler'
 
 const run = (error: unknown) =>
@@ -34,6 +36,27 @@ describe('withErrorHandler', () => {
       error: 'Please provide a valid token',
     })
     expect(captureException).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'CopilotApiError',
+      new CopilotApiError(httpStatus.UNAUTHORIZED, { message: 'bad key' }),
+    ],
+    [
+      'HttpFetchError',
+      new HttpFetchError({
+        status: httpStatus.UNAUTHORIZED,
+        statusText: 'Unauthorized',
+        url: 'https://example.com',
+        body: null,
+      }),
+    ],
+  ])('still reports upstream 401s (%s) to Sentry', async (_, error) => {
+    const res = await run(error)
+
+    expect(res.status).toBe(401)
+    expect(captureException).toHaveBeenCalledTimes(1)
   })
 
   it('still reports other APIErrors to Sentry', async () => {
