@@ -99,6 +99,8 @@ vi.mock('@sentry/nextjs', () => ({
     cb({
       setTag: vi.fn(),
       setExtra: vi.fn(),
+      setLevel: vi.fn(),
+      setFingerprint: vi.fn(),
       addEventProcessor: vi.fn(),
     }),
   ),
