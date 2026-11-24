@@ -1139,12 +1139,20 @@ export class InvoiceService extends BaseService {
       'status',
       'qbSyncToken',
       'invoiceNumber',
+      'qbDocNumber',
     ])
+
+    if (syncedInvoice?.status === InvoiceStatus.DELETED) {
+      await this.logSync(payload.id, syncedInvoice, EventType.DELETED)
+      return
+    }
 
     // Check QBO for the invoice up front. QBO is the source of truth for whether
     // there's anything to delete; the local sync table is just a cache of the mapping.
     const intuitApi = new IntuitAPI(qbTokenInfo)
-    const qbInvoice = await intuitApi.getInvoice(payload.number)
+    const qbInvoice = await intuitApi.getInvoice(
+      syncedInvoice?.qbDocNumber ?? payload.number,
+    )
 
     if (!qbInvoice) {
       // Invoice doesn't exist in QBO (never synced or manually deleted there).
