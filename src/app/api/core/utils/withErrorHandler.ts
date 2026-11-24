@@ -96,6 +96,16 @@ export const withErrorHandler = (handler: RequestHandler): RequestHandler => {
           Sentry.captureException(error)
         })
       } else if (
+        error instanceof APIError &&
+        error.status === httpStatus.UNAUTHORIZED
+      ) {
+        Sentry.withScope((scope) => {
+          scope.setLevel('warning')
+          scope.setTag('authRejection', 'true')
+          scope.setFingerprint(['api-auth-rejection'])
+          Sentry.captureException(error)
+        })
+      } else if (
         error instanceof APIError ||
         error instanceof CopilotApiError ||
         error instanceof HttpFetchError ||
