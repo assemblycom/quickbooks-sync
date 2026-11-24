@@ -3,9 +3,14 @@ import httpStatus from 'http-status'
 import { NextRequest } from 'next/server'
 
 const captureException = vi.fn()
+const scope = {
+  setTag: vi.fn(),
+  setLevel: vi.fn(),
+  setFingerprint: vi.fn(),
+  addEventProcessor: vi.fn(),
+}
 vi.mock('@sentry/nextjs', () => ({
-  withScope: (fn: (scope: unknown) => void) =>
-    fn({ setTag: vi.fn(), addEventProcessor: vi.fn() }),
+  withScope: (fn: (s: typeof scope) => void) => fn(scope),
   captureException: (...args: unknown[]) => captureException(...args),
   captureMessage: vi.fn(),
 }))
@@ -22,11 +27,11 @@ const run = (error: unknown) =>
 
 describe('withErrorHandler', () => {
   beforeEach(() => {
-    captureException.mockClear()
+    vi.clearAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  it('returns 401 without reporting to Sentry for auth rejections', async () => {
+  it('reports our own 401s as one grouped warning', async () => {
     const res = await run(
       new APIError(httpStatus.UNAUTHORIZED, 'Please provide a valid token'),
     )
@@ -35,7 +40,9 @@ describe('withErrorHandler', () => {
     expect(await res.json()).toMatchObject({
       error: 'Please provide a valid token',
     })
-    expect(captureException).not.toHaveBeenCalled()
+    expect(captureException).toHaveBeenCalledTimes(1)
+    expect(scope.setLevel).toHaveBeenCalledWith('warning')
+    expect(scope.setFingerprint).toHaveBeenCalledWith(['api-auth-rejection'])
   })
 
   it.each([
@@ -52,17 +59,20 @@ describe('withErrorHandler', () => {
         body: null,
       }),
     ],
-  ])('still reports upstream 401s (%s) to Sentry', async (_, error) => {
+  ])('reports upstream 401s (%s) as errors', async (_, error) => {
     const res = await run(error)
 
     expect(res.status).toBe(401)
     expect(captureException).toHaveBeenCalledTimes(1)
+    expect(scope.setLevel).not.toHaveBeenCalled()
+    expect(scope.setFingerprint).not.toHaveBeenCalled()
   })
 
-  it('still reports other APIErrors to Sentry', async () => {
+  it('reports other APIErrors as errors', async () => {
     const res = await run(new APIError(httpStatus.NOT_FOUND, 'Not found'))
 
     expect(res.status).toBe(404)
     expect(captureException).toHaveBeenCalledTimes(1)
+    expect(scope.setLevel).not.toHaveBeenCalled()
   })
 })
