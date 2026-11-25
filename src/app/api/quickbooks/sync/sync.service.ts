@@ -23,6 +23,7 @@ import { TokenService } from '@/app/api/quickbooks/token/token.service'
 import { QBPortalConnection } from '@/db/schema/qbPortalConnections'
 import { MAX_ATTEMPTS } from '@/constant/sync'
 import { captureMessage } from '@sentry/nextjs'
+import { getNotifiableAction } from '@/app/api/quickbooks/syncLog/syncErrorNotifier'
 import { AccountTypeObj } from '@/constant/qbConnection'
 import { ErrorMessageAndCode, getMessageAndCodeFromError } from '@/utils/error'
 import { getCategory, getShouldRetryForCategory } from '@/utils/synclog'
@@ -573,7 +574,17 @@ export class SyncService extends BaseService {
         const currentLog = await this.syncLogService.getOne(
           eq(QBSyncLog.id, log.id),
         )
-        if (currentLog?.status === LogStatus.FAILED) {
+        if (currentLog && getNotifiableAction(currentLog)) {
+          CustomLogger.info({
+            message:
+              'SyncService#intiateSync | Record exceeded max retry count with a user-actionable error; IU already notified',
+            obj: {
+              workspaceId: this.user.workspaceId,
+              logId: log.id,
+              errorCode: currentLog.errorCode,
+            },
+          })
+        } else if (currentLog?.status === LogStatus.FAILED) {
           captureMessage(
             `SyncService#intiateSync | Records exceeded max retry count. Portal Id: ${this.user.workspaceId}.`,
             {

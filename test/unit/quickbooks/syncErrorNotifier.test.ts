@@ -50,6 +50,7 @@ import {
   SyncErrorNotifier,
   getActionForErrorCode,
   getEntityKey,
+  getNotifiableAction,
 } from '@/app/api/quickbooks/syncLog/syncErrorNotifier'
 import {
   AppActionableErrorCodes,
@@ -122,6 +123,30 @@ describe('getActionForErrorCode', () => {
     expect(getActionForErrorCode(undefined)).toBeNull()
     expect(getActionForErrorCode(null)).toBeNull()
     expect(getActionForErrorCode('')).toBeNull()
+  })
+})
+
+describe('getNotifiableAction', () => {
+  it('returns the action for a FAILED row with a user-actionable code', () => {
+    expect(getNotifiableAction(baseLog)).toBe(
+      UserActionableErrorCodes[String(QBOErrorCodes.CLOSED_PERIOD)],
+    )
+  })
+
+  it('returns null when the row is not FAILED', () => {
+    expect(
+      getNotifiableAction({ ...baseLog, status: LogStatus.SUCCESS as never }),
+    ).toBeNull()
+  })
+
+  it('returns null for product 5010', () => {
+    expect(
+      getNotifiableAction({
+        ...baseLog,
+        entityType: 'product' as never,
+        errorCode: String(QBOErrorCodes.STALE_OBJECT),
+      }),
+    ).toBeNull()
   })
 })
 

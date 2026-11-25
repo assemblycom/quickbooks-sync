@@ -113,16 +113,16 @@ export class SyncLogService extends BaseService {
 
   /**
    * Updates an existing sync log row. When the update transitions the row
-   * INTO the FAILED state (i.e. its prior status was not FAILED), schedules
-   * the IU sync-failure notification. Callers that already know the prior
-   * status (e.g. `updateOrCreateQBSyncLog`) can pass it to skip the lookup;
-   * otherwise we fetch it before applying the update so retry replays
-   * (FAILED→FAILED) don't re-notify.
+   * INTO the FAILED state, or keeps it FAILED with a different errorCode,
+   * schedules the IU sync-failure notification. Callers that already know the
+   * prior row (e.g. `updateOrCreateQBSyncLog`) can pass it to skip the lookup;
+   * otherwise we fetch it before applying the update so same-error retry
+   * replays (FAILED→FAILED) don't re-notify.
    */
   async updateQBSyncLog(
     payload: QBSyncLogUpdateSchemaType,
     conditions: WhereClause,
-    priorStatus?: LogStatus,
+    prior?: Pick<QBSyncLogSelectSchemaType, 'status' | 'errorCode'>,
   ): Promise<QBSyncLogSelectSchemaType> {
     const parsedPayload = QBSyncLogUpdateSchema.parse(payload)
     // Only consider notifying when this update is *actively* setting status to
@@ -131,12 +131,11 @@ export class SyncLogService extends BaseService {
     // not transitions and must not re-page IUs.
     const settingFailed = parsedPayload.status === LogStatus.FAILED
 
-    if (priorStatus === undefined && settingFailed) {
-      const existing = await this.db.query.QBSyncLog.findFirst({
+    if (prior === undefined && settingFailed) {
+      prior = await this.db.query.QBSyncLog.findFirst({
         where: conditions,
-        columns: { status: true },
+        columns: { status: true, errorCode: true },
       })
-      priorStatus = existing?.status as LogStatus | undefined
     }
 
     const [log] = await this.db
@@ -147,7 +146,11 @@ export class SyncLogService extends BaseService {
 
     console.info('SyncLogService#updateQBSyncLog | Sync log updated')
 
-    if (settingFailed && log && priorStatus !== LogStatus.FAILED) {
+    if (
+      settingFailed &&
+      log &&
+      (prior?.status !== LogStatus.FAILED || prior.errorCode !== log.errorCode)
+    ) {
       this.scheduleFailureNotification(log)
     }
 
@@ -217,7 +220,7 @@ export class SyncLogService extends BaseService {
       await this.updateQBSyncLog(
         payload,
         eq(QBSyncLog.id, existingLog.id),
-        existingLog.status as LogStatus,
+        existingLog,
       )
     } else {
       await this.createQBSyncLog(payload)
