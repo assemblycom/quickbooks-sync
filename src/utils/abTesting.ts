@@ -1,11 +1,19 @@
 import { abFeatureTestingPortals } from '@/config'
 
 /**
- * Whether a portal may use the bank deposit feature during its incremental
- * rollout. An empty/unset allowlist means the feature is on for all portals;
- * otherwise only listed portals get it.
+ * Hard-off flag: the QBO automatic bank reconciliation beta has been wound down
+ * (OUT-4262). Set to `true` to re-enable the feature with the allowlist gate.
  */
-export function isPortalInBankDepositABTest(portalId: string): boolean {
+const BANK_DEPOSIT_FEATURE_ENABLED = false
+
+/**
+ * Whether a portal may use the bank deposit feature. The feature is currently
+ * disabled for all portals (OUT-4262 wind-down). When BANK_DEPOSIT_FEATURE_ENABLED
+ * is true, an empty/unset allowlist means enabled for all; otherwise only
+ * listed portals get it.
+ */
+export function isPortalInBankDepositABTest(_portalId: string): boolean {
+  if (!BANK_DEPOSIT_FEATURE_ENABLED) return false
   if (abFeatureTestingPortals.length === 0) return true
-  return abFeatureTestingPortals.includes(portalId)
+  return abFeatureTestingPortals.includes(_portalId)
 }
