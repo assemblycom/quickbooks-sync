@@ -53,6 +53,25 @@ type MixedPayoutInvoices = {
   invoiceNumbersWithFee?: string
 }
 
+export function getNotifiableAction(
+  log: Pick<QBSyncLogSelectSchemaType, 'status' | 'errorCode' | 'entityType'>,
+): NotificationActions | null {
+  if (log.status !== LogStatus.FAILED) return null
+
+  const action = getActionForErrorCode(log.errorCode)
+
+  // PRODUCT 5010 auto-recovers via updateProductSyncToken on the next
+  // cron tick. INVOICE/PAYMENT have no equivalent refresh, so their
+  // 5010s stay user-actionable.
+  if (
+    action === NotificationActions.QB_STALE_OBJECT &&
+    log.entityType === EntityType.PRODUCT
+  ) {
+    return null
+  }
+  return action
+}
+
 export class SyncErrorNotifier extends BaseService {
   /**
    * Dispatches an IU notification for a freshly written FAILED sync log row
@@ -64,20 +83,8 @@ export class SyncErrorNotifier extends BaseService {
    * the sync log write.
    */
   async notify(log: QBSyncLogSelectSchemaType): Promise<void> {
-    if (log.status !== LogStatus.FAILED) return
-
-    const action = getActionForErrorCode(log.errorCode)
+    const action = getNotifiableAction(log)
     if (!action) return
-
-    // PRODUCT 5010 auto-recovers via updateProductSyncToken on the next
-    // cron tick. INVOICE/PAYMENT have no equivalent refresh, so their
-    // 5010s stay user-actionable.
-    if (
-      action === NotificationActions.QB_STALE_OBJECT &&
-      log.entityType === EntityType.PRODUCT
-    ) {
-      return
-    }
 
     // Only mixed-payout rows carry an affected-invoice list to resolve.
     const {
