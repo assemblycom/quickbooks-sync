@@ -1,8 +1,8 @@
 'use client'
-import { checkForNonUsCompany } from '@/action/quickbooks.action'
 import { AuthStatus } from '@/app/api/core/types/auth'
 import { useApp } from '@/app/context/AppContext'
 import { CalloutVariant } from '@/components/type/callout'
+import { getFetcher } from '@/helper/fetch.helper'
 import { useQuickbooks } from '@/hook/useQuickbooks'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -40,7 +40,10 @@ export const useDashboardMain = () => {
   const checkCompanyCountry = useCallback(async () => {
     setNonUsCompanyChecking(true)
     try {
-      const nonUsCompany = await checkForNonUsCompany(tokenPayload.workspaceId)
+      const { nonUsCompany } = await getFetcher(
+        `/api/quickbooks/token/non-us-company?token=${token}`,
+        {},
+      )
       setAppParams((prev) => ({
         ...prev,
         nonUsCompany,
